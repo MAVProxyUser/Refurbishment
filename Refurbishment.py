@@ -303,7 +303,6 @@ class MainWindow(tk.Tk):
                 if not hasattr(self.test_suite.test_devices,"i2cSuite"):
                     new_i2c = I2CSuite()
                     self.test_suite.test_devices.add_device(new_object = new_i2c)
-                self.text_console_logger("Connecting to OtO ...")
                 new_oto = otoSprinkler()
                 self.test_suite.test_devices.add_device(new_object = new_oto)  # always reinitialize connection and create new sprinkler
                 # pull info from the EOL PCB. factoryLocation and 
@@ -565,7 +564,7 @@ class MainWindow(tk.Tk):
                     self.text_console_logger(display_message = ResultList.test_status[1:])
                 self.one_button_to_rule_them_all.configure(state = "normal")
                 self.turn_valve_button.configure(state = "normal")
-        elif FunctionName in "Unit Name Check": 
+        elif FunctionName in "Unit Information": 
             ResultList = self.test_suite.test_list[ButtonNumber].run_step(peripherals_list=self.test_suite.test_devices)
             if not ResultList.is_passed:
                 self.status_labels[ButtonNumber].configure(bg = self.BAD_COLOUR, state = "normal")

@@ -118,7 +118,7 @@ class TestPeripherals:
             except:
                 self.DUTsprinkler.bomNumber = "None"
             self.parent.text_bom_number.delete(1.0, tk.END)
-            self.parent.text_bom_number.insert(tk.END, self.DUTsprinkler.deviceID)            
+            self.parent.text_bom_number.insert(tk.END, self.DUTsprinkler.bomNumber)            
             self.parent.text_bom_number.update()
 
             self.DUTsprinkler.Firmware = self.DUTMLB.get_firmware_version().string
@@ -312,19 +312,13 @@ class GetUnitName(TestStep):
     def run_step(self, peripherals_list: TestPeripherals):
         startTime = timeit.default_timer()
 
-        # If there isn't a BOM stop and error out
-        if peripherals_list.DUTsprinkler.bomNumber == "None":
-            return GetUnitNameResult(test_status = self.ERRORS.get("Blank BOM"), step_start_time = startTime)
+        existingSerial = peripherals_list.DUTsprinkler.deviceID
+        existingBOM = peripherals_list.DUTsprinkler.bomNumber
+        if existingBOM == "None":
+            existingBOM = GetBOM
+        if len(existingSerial) == 0 or existingSerial == "None":
+            existingSerial = None
 
-        # check for an existing unit name on the board. If there isn't one just use the MAC address.
-        try:
-            existingSerial = peripherals_list.DUTMLB.get_device_id().string
-            if len(existingSerial) == 0:
-                existingSerial = None
-        except peripherals_list.DUTsprinkler.NoNVSException:
-            return GetUnitNameResult(test_status = self.ERRORS.get("No Device ID"), step_start_time = startTime)
-        except Exception as e:
-            return GetUnitNameResult(test_status = str(e), step_start_time = startTime)
         ReturnMessage = self.otoGenerateSerialRequest(peripherals_list = peripherals_list, existingSerial = existingSerial)
         if ReturnMessage != None:
             return GetUnitNameResult(test_status = ReturnMessage, step_start_time = startTime)
@@ -335,7 +329,7 @@ class GetUnitName(TestStep):
         if len(existingSerial) != 0: #blank units will have "" as the default value
             if existingSerial[0:3] == "oto" and len(existingSerial) == 10 and existingSerial[3:10].isnumeric():  # is the Device ID valid?
                 EstablishLoggingLocation(name = None, folder_name = None, csv_file_name = None, parent = self.parent).run_step(peripherals_list = peripherals_list)
-                self.parent.text_console_logger(f"{existingSerial}, {existingBOM}, {peripherals_list.DUTsprinkler.macAddress}, UID => {peripherals_list.DUTsprinkler.UID}")
+                # self.parent.text_console_logger(f"{existingSerial}, {existingBOM}, {peripherals_list.DUTsprinkler.macAddress}, UID => {peripherals_list.DUTsprinkler.UID}")
                 return GetUnitNameResult(test_status = None, step_start_time = startTime)
             else: # Invalid unit name
                 return GetUnitNameResult(test_status = f"Invalid unit name: {existingSerial}", step_start_time = startTime)                
@@ -348,8 +342,7 @@ class GetUnitName(TestStep):
             factory_location = "OTO_MFG"
         else:
             factory_location = "LitensAftermarket"
-        # oto_generate_unit_url = "https://us-central1-oto-test-3254b.cloudfunctions.net/masterGenerateUnit"
-        oto_generate_unit_url = "https://asia-east2-oto-test-3254b.cloudfunctions.net/masterGenerateUnit"
+        oto_generate_unit_url = "https://us-central1-oto-test-3254b.cloudfunctions.net/masterGenerateUnit"
         # oto_generate_unit_url = 'https://meco-accessor-service-ugegz6xfpa-pd.a.run.app/oto/meco/masterGenerateUnit'
         requestJson = {
             "key": "XJhbCu4ujfJF3Ugu",
