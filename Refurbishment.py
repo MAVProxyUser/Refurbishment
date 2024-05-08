@@ -28,14 +28,14 @@ class LogFileLocationError(Exception):
     pass
 
 class MainWindow(tk.Tk): 
-    ProgramVersion = "v1.71"
+    ProgramVersion = "v0.9α"
     BAD_COLOUR = "RED"
     GOOD_COLOUR = "GREEN"
     IN_PROCESS_COLOUR = "YELLOW"
     NORMAL_COLOUR = "WHITE"
     SCALEFACTOR = 1  # scale factor is one if there are 1440 vertical pixels on the screen
-    FIGSIZEX = 14  # width of chart window for a 1440 vertical pixel screen, to be scaled at the init stage
-    FIGSIZEY = 8.5 # height of chart window, for a 1440 vertical pixel screen, to be scaled at the init stage
+    FIGSIZEX = 17  # width of chart window for a 2160 vertical pixel screen, to be scaled at the init stage
+    FIGSIZEY = 10.5 # height of chart window, for a 2160 vertical pixel screen, to be scaled at the init stage
     DPI = 120  # scale based on monitor dots per inch
     
     def __init__(self):
@@ -47,10 +47,9 @@ class MainWindow(tk.Tk):
         sns.set_theme(font = "Microsoft YaHei", font_scale = 1.5 * self.SCALEFACTOR)  # sets the default seaborn chart colours and fonts
 
         self.device_list = TestPeripherals(parent = self)
-        self.test_suite = TestSuite(name = f"OtO Unit Return Function Test {self.ProgramVersion}",
+        self.test_suite = TestSuite(name = f"OtO UNIT REFURBISHMENT {self.ProgramVersion}",
                             test_list=[
-                                GetUnitName(name = "Unit Name Check", parent = self),
-                                TestBattery(name = "Check Battery", parent = self),
+                                GetUnitName(name = "Unit Information", parent = self),
                                 TestExternalPower(name = "Check OtO Charging", parent = self),
                                 TestPump(name = "Test Pump 1", target_pump = 1, target_pump_duty = 100, parent = self),
                                 TestPump(name = "Test Pump 2", target_pump = 2, target_pump_duty = 100, parent = self),
@@ -62,7 +61,8 @@ class MainWindow(tk.Tk):
                                 TestMoesFullyOpen(name = "Fully Open Position Test", parent = self),
                                 NozzleRotationTestWithSubscribe(name = "Nozzle Rotation Test", parent = self),
                                 CheckVacSwitch(name = "Holds Pump Vacuum", parent = self),
-                                TestSolar(name = "Check Solar Panel", parent = self)
+                                TestSolar(name = "Check Solar Panel", parent = self),
+                                PrintDeviceLabel(name = "Print Unit Label", parent = self)
                                 ],  
                             test_devices = self.device_list,
                             test_type = "EOL")
@@ -74,15 +74,23 @@ class MainWindow(tk.Tk):
         self.status_font = font.Font(family = "Microsoft YaHei UI", size = int(28 * self.SCALEFACTOR), weight = "normal")
         self.smaller_font = font.Font(family = "Microsoft YaHei UI", size = int(24 * self.SCALEFACTOR), weight = "normal")
         self.winfo_toplevel().title(self.test_suite.name)
-        self.text_console = tk.Text(self, relief = "raised", border = 3, font = font.Font(family = "Microsoft YaHei UI", size = int(24 * self.SCALEFACTOR), weight = "normal"), padx = int(10 * self.SCALEFACTOR), pady = int(10 * self.SCALEFACTOR), height = 6)
-        self.GraphHolder = tk.Frame(self, bg = self.NORMAL_COLOUR, relief = "sunken", border = 3, width = int(2000 * self.SCALEFACTOR))
+        self.LeftFrame = tk.Frame(self, width = int(1200 * self.SCALEFACTOR), height = int(2100 * self.SCALEFACTOR), relief = "sunken", border = int(5 * self.SCALEFACTOR))
+        self.LeftFrame.grid(row = 0, column = 0, padx = int(4 *self.SCALEFACTOR), pady = int (4 * self.SCALEFACTOR))
+        self.RightFrame = tk.Frame(self, width = int(2200 * self.SCALEFACTOR), height = int(2100 * self.SCALEFACTOR), relief = "raised", border = int(5 * self.SCALEFACTOR))
+        self.RightFrame.grid(row = 0, column = 1, padx = int(4 *self.SCALEFACTOR), pady = int (4 * self.SCALEFACTOR))        
+        self.text_console = tk.Text(self.RightFrame, relief = "raised", border = 3, font = self.smaller_font, padx = int(10 * self.SCALEFACTOR), pady = int(10 * self.SCALEFACTOR), height = 16)
+        self.GraphHolder = tk.Frame(self.RightFrame, bg = self.NORMAL_COLOUR, relief = "sunken", border = 3, width = int(2000 * self.SCALEFACTOR), height = int(1300 * self.SCALEFACTOR))
         self.GraphHolder.grid_propagate(False)
-        self.label_device_id = tk.Label(self, text = "Unit Name:", font = self.smaller_font, padx = int(5 * self.SCALEFACTOR))
-        self.text_device_id = tk.Text(self, width = 12, font = self.status_font, height = 1, padx = int(5 * self.SCALEFACTOR), pady = int(5 * self.SCALEFACTOR))
-        self.label_bom_number = tk.Label(self, text = "BOM:", font = self.smaller_font, padx = int(5 * self.SCALEFACTOR))
-        self.text_bom_number = tk.Text(self, width = 12, font = self.status_font, height = 1, padx = int(5 * self.SCALEFACTOR), pady = int(5 * self.SCALEFACTOR))
-        self.labelFirmware = tk.Label(self, text = "Firmware:", font = self.smaller_font, padx = int(5 * self.SCALEFACTOR))
-        self.textFirmware = tk.Text(self, width = 12, font = self.status_font, height = 1, padx = int(5 * self.SCALEFACTOR), pady = int (5 * self.SCALEFACTOR))
+        self.label_device_id = tk.Label(self.LeftFrame, text = "Unit Name:", font = self.smaller_font, padx = int(5 * self.SCALEFACTOR))
+        self.text_device_id = tk.Text(self.LeftFrame, width = 16, font = self.status_font, height = 1, padx = int(5 * self.SCALEFACTOR), pady = int(5 * self.SCALEFACTOR))
+        self.label_bom_number = tk.Label(self.LeftFrame, text = "BOM:", font = self.smaller_font, padx = int(5 * self.SCALEFACTOR))
+        self.text_bom_number = tk.Text(self.LeftFrame, width = 16, font = self.status_font, height = 1, padx = int(5 * self.SCALEFACTOR), pady = int(5 * self.SCALEFACTOR))
+        self.labelFirmware = tk.Label(self.LeftFrame, text = "Firmware:", font = self.smaller_font, padx = int(5 * self.SCALEFACTOR))
+        self.textFirmware = tk.Text(self.LeftFrame, width = 16, font = self.status_font, height = 1, padx = int(5 * self.SCALEFACTOR), pady = int (5 * self.SCALEFACTOR))
+        self.label_battery = tk.Label(self.LeftFrame, text = "Battery:", font = self.smaller_font, padx = int(5 * self.SCALEFACTOR))
+        self.text_battery = tk.Text(self.LeftFrame, width = 16, font = self.status_font, height = 1, padx = int(5 * self.SCALEFACTOR), pady = int(5 * self.SCALEFACTOR))
+        self.labelMAC = tk.Label(self.LeftFrame, text = "MAC:", font = self.smaller_font, padx = int(5 * self.SCALEFACTOR))
+        self.textMAC = tk.Text(self.LeftFrame, width = 16, font = self.status_font, height = 1, padx = int(5 * self.SCALEFACTOR), pady = int(5 * self.SCALEFACTOR))
 
         # Program Variables
         self.abort_test_bool: bool = False
@@ -95,25 +103,36 @@ class MainWindow(tk.Tk):
         self.all_elements = [self.status_labels, self.buttons]
 
         # Widgets: Buttons
-        self.one_button_to_rule_them_all = tk.Button(self, text = "START", width = 16, font = font.Font(family = "Microsoft YaHei UI", size = int(36 * self.SCALEFACTOR), weight = "bold"), pady = int(5 * self.SCALEFACTOR), bg = self.GOOD_COLOUR, fg = self.NORMAL_COLOUR, command = self.execute_tests)
-        self.turn_valve_button = tk.Button(self, text = "Turn Valve 90°", width = 16, font = font.Font(family = "Microsoft YaHei UI", size = int(36 * self.SCALEFACTOR), weight = "bold"), pady = int(5 * self.SCALEFACTOR), bg = self.GOOD_COLOUR, fg = self.NORMAL_COLOUR, command = self.TurnValve90)
+        self.one_button_to_rule_them_all = tk.Button(self.LeftFrame, text = "START", width = 16, font = font.Font(family = "Microsoft YaHei UI", size = int(36 * self.SCALEFACTOR), weight = "bold"), pady = int(5 * self.SCALEFACTOR), bg = self.GOOD_COLOUR, fg = self.NORMAL_COLOUR, command = self.execute_tests)
+        self.turn_valve_button = tk.Button(self.LeftFrame, text = "Turn Valve 90°", width = 16, font = font.Font(family = "Microsoft YaHei UI", size = int(36 * self.SCALEFACTOR), weight = "bold"), pady = int(5 * self.SCALEFACTOR), bg = self.GOOD_COLOUR, fg = self.NORMAL_COLOUR, command = self.TurnValve90)
         self.buttons.append(self.one_button_to_rule_them_all)
         self.buttons.append(self.turn_valve_button)
 
         # Grids for placement of elements
-        self.text_console.grid(row = 0, column = 4, rowspan = 6, padx = int(5 * self.SCALEFACTOR), pady = int(5 * self.SCALEFACTOR), sticky = "NEWS")
-        self.GraphHolder.grid(row = 6, column = 4, rowspan = 10, padx = int(5 * self.SCALEFACTOR), pady = 1, sticky = "NEWS")
-        self.label_device_id.grid(row = 1, column = 0, sticky = "E", padx = int(10 * self.SCALEFACTOR))
-        self.text_device_id.grid(row = 1, column = 1, sticky = "W", padx = int(5 * self.SCALEFACTOR), pady = int(5 * self.SCALEFACTOR))
-        self.label_bom_number.grid(row = 2, column = 0, sticky = "E", padx = int(10 * self.SCALEFACTOR))
-        self.text_bom_number.grid(row = 2, column = 1, sticky = "W", padx = int(5 * self.SCALEFACTOR), pady = int(5 * self.SCALEFACTOR))
-        self.labelFirmware.grid(row = 3, column = 0, sticky = "E", padx = int(10 * self.SCALEFACTOR))
-        self.textFirmware.grid(row = 3, column = 1, sticky = "W", padx = int(5 * self.SCALEFACTOR), pady = int(5 * self.SCALEFACTOR))
+        self.text_console.grid(row = 0, column = 0, rowspan = 7, padx = int(5 * self.SCALEFACTOR), pady = int(5 * self.SCALEFACTOR), sticky = "NEWS")
+        self.GraphHolder.grid(row = 7, column = 0, rowspan = 14, padx = int(5 * self.SCALEFACTOR), sticky = "NEWS")
+        self.label_device_id.grid(row = 0, column = 0, sticky = "E", padx = int(10 * self.SCALEFACTOR))
+        self.text_device_id.grid(row = 0, column = 1, sticky = "W", padx = int(5 * self.SCALEFACTOR), pady = int(5 * self.SCALEFACTOR))
+        self.label_bom_number.grid(row = 1, column = 0, sticky = "E", padx = int(10 * self.SCALEFACTOR))
+        self.text_bom_number.grid(row = 1, column = 1, sticky = "W", padx = int(5 * self.SCALEFACTOR), pady = int(5 * self.SCALEFACTOR))
+        self.labelFirmware.grid(row = 2, column = 0, sticky = "E", padx = int(10 * self.SCALEFACTOR))
+        self.textFirmware.grid(row = 2, column = 1, sticky = "W", padx = int(5 * self.SCALEFACTOR), pady = int(5 * self.SCALEFACTOR))
+        self.label_battery.grid(row = 3, column = 0, sticky = "E", padx = int(10 * self.SCALEFACTOR))
+        self.text_battery.grid(row = 3, column = 1, sticky = "W", padx = int(5 * self.SCALEFACTOR), pady = int(5 * self.SCALEFACTOR))
+        self.labelMAC.grid(row = 4, column = 0, sticky = "E", padx = int(10 * self.SCALEFACTOR))
+        self.textMAC.grid(row = 4, column = 1, sticky = "W", padx = int(5 * self.SCALEFACTOR), pady = int(5 * self.SCALEFACTOR))
         self.one_button_to_rule_them_all.grid(row = 6, column = 1, padx = int(5 * self.SCALEFACTOR), pady = int(5 * self.SCALEFACTOR))
         self.turn_valve_button.grid(row = 9, column = 1, padx = int(5 * self.SCALEFACTOR), pady = int(5 * self.SCALEFACTOR))
 
-        # Normal Setup
-        self.create_labels()
+        # Button Setup
+        ColumnCount = 14  # number of items per column
+        for count, steps in enumerate(self.test_suite.test_list):
+            column_no = 3 + count // ColumnCount
+            row_no = count % ColumnCount
+            setattr(self, steps.name, tk.Button(self.LeftFrame, borderwidth = 3, relief = "raised", text = steps.name, bg = self.NORMAL_COLOUR, font = self.status_font, padx = int(3 * self.SCALEFACTOR), pady = int(3 * self.SCALEFACTOR), width = 24, wraplength = 500 * self.SCALEFACTOR, height = 2, command = lambda x=count : self.OneTestButton(x)))
+            temp = getattr(self, steps.name)
+            self.status_labels.append(temp)
+            temp.grid(row = row_no, column = column_no, sticky = "EW", padx = int(10 * self.SCALEFACTOR), pady = int(6 * self.SCALEFACTOR))
 
     def abort_test(self):
         "Function to STOP test"
@@ -125,18 +144,6 @@ class MainWindow(tk.Tk):
         "clears all items in the plot frame"
         for widgets in self.GraphHolder.winfo_children():
             widgets.destroy()
-
-    def create_labels(self):
-        "Create a tk.button for each item in the list to run, initialize the position, create a list of these buttons"
-
-        ColumnCount = 14  # number of items per column
-        for count, steps in enumerate(self.test_suite.test_list):
-            column_no = 3 + count // ColumnCount
-            row_no = count % ColumnCount
-            setattr(self, steps.name, tk.Button(self, borderwidth = 3, relief = "sunken", text = steps.name, bg = self.NORMAL_COLOUR, font = self.status_font, padx = int(3 * self.SCALEFACTOR), pady = int(3 * self.SCALEFACTOR), width = 24, wraplength = 500 * self.SCALEFACTOR, height = 2, command = lambda x=count : self.OneTestButton(x)))
-            temp = getattr(self, steps.name)
-            self.status_labels.append(temp)
-            temp.grid(row = row_no, column = column_no, sticky = "EW", padx = int(40 * self.SCALEFACTOR), pady = int(4 * self.SCALEFACTOR))
 
     def create_plot(self, window, plottype: str, xaxis, yaxis, size, name, clear, xtitle = None, ytitle = None):
         """creates a plot of type histogram, line, or polar in the plot frame"""
@@ -484,7 +491,7 @@ class MainWindow(tk.Tk):
             self.turn_valve_button.configure(state = "normal")
             return None
 
-        if FunctionName in "Holds Pump Vacuum":
+        if FunctionName in "Holds Pump Vacuum Print Unit Label Print Box Label":
             self.text_console_logger("This test cannot be run by itself.")
             self.status_labels[ButtonNumber].configure(bg = self.NORMAL_COLOUR, state = "normal")
             self.status_labels[ButtonNumber].update()
@@ -493,7 +500,6 @@ class MainWindow(tk.Tk):
             return None
         elif FunctionName in "Check Battery Zero Pressure Check Send Nozzle Home Nozzle Rotation Test":  # these functions don't need control board
             try:
-                self.text_console_logger("Connecting to OtO...")
                 self.test_suite.test_devices.add_device(new_object = otoSprinkler())
             except Exception as e:
                 self.text_console.configure(bg = self.IN_PROCESS_COLOUR)
@@ -706,7 +712,6 @@ class MainWindow(tk.Tk):
         self.turn_valve_button.configure(text = "Turning...", bg = self.IN_PROCESS_COLOUR, state = "disabled")
         self.one_button_to_rule_them_all.configure(state = "disabled")
         self.text_console.configure(bg = self.NORMAL_COLOUR)
-        self.text_console_logger("Turning ball valve 90°...")
 
         if not self.USBCheck():
             self.text_console.configure(bg = self.IN_PROCESS_COLOUR)
@@ -715,7 +720,6 @@ class MainWindow(tk.Tk):
             return None
 
         try:
-            self.text_console_logger("Connecting to OtO...")
             self.test_suite.test_devices.add_device(new_object = otoSprinkler())
         except Exception as e:
             self.text_console.configure(bg = self.IN_PROCESS_COLOUR)
@@ -732,6 +736,7 @@ class MainWindow(tk.Tk):
             self.turn_valve_button.configure(text = "Turn Valve 90°", bg = self.GOOD_COLOUR, command = self.TurnValve90, state = "normal") 
             return ClosePort(self.device_list)
 
+        self.text_console_logger("Turning ball valve 90°...")
         try:
             currentPosition = int(self.test_suite.test_devices.DUTMLB.get_sensors().valve_position_centideg)
             desiredPosition = (currentPosition + 9000) % 36000

@@ -21,6 +21,8 @@ import globalvars
 matplotlib.use('Agg')   # needed to prevent multi-thread failures when using matplotlib
 from matplotlib import pyplot as plt
 
+MINBATTERY:float = 3.5 #4.2V is full, based on stats of 141 units Dec 2023 at Meco
+
 class TestPeripherals:
     "This class will sort the inputs into objects that have been predefined. Only one com port is supported, and the program won't run if more than one USB card is connected."
 
@@ -49,38 +51,30 @@ class TestPeripherals:
             sys.path.insert(0, os.path.dirname(__file__) + "\pyoto\otoProtocol")
             # remove duplicate entries from the module path sys.path
             sys.path = list(dict.fromkeys(sys.path))
-            self.ClearModules()           
+            self.ClearModules()
             import pyoto.otoProtocol.otoMessageDefs as otoMessageDefs
             import pyoto.otoProtocol.otoCommands as pyoto
+            self.parent.text_console_logger("Connecting to OtO...")
             self.DUTMLB = pyoto.OtoInterface(pyoto.ConnectionType.UART, logger = None)
             self.DUTMLB.start_connection(port = globalvars.PortName, reset_on_connect = True)
-            self.DUTsprinkler.Firmware = self.DUTMLB.get_firmware_version().string
-            self.parent.textFirmware.delete(1.0,tk.END)
-            self.parent.textFirmware.insert(tk.END, self.DUTsprinkler.Firmware)
-            self.parent.textFirmware.update()
-            if self.DUTsprinkler.Firmware < "v3":
-                self.parent.text_console_logger("changing PyOtO versions to match firmware...")
-                self.DUTMLB.stop_connection()
-                # first remove PyOtO from the module path sys.path, if it exists
-                try:
-                    sys.path.remove(os.path.dirname(__file__) + "\pyoto\otoProtocol")
-                except:
-                    pass
-                # add PyOtO2 to the module path sys.path
-                sys.path.insert(0, os.path.dirname(__file__) + "\pyoto2\otoProtocol")
-                # remove duplicate entries from the module path sys.path
-                sys.path = list(dict.fromkeys(sys.path))
-                self.ClearModules()   
-                import pyoto2.otoProtocol.otoMessageDefs as otoMessageDefs
-                import pyoto2.otoProtocol.otoCommands as pyoto
-                self.DUTMLB = pyoto.OtoInterface(pyoto.ConnectionType.UART, logger = None)
-                self.DUTMLB.start_connection(port = globalvars.PortName, reset_on_connect = False)
+            
+            self.parent.text_console_logger("Checking OtO...")
+
+            BatteryVoltage = round(float(self.DUTMLB.get_voltages().battery_voltage_v), 3)
+            self.DUTsprinkler.batteryVoltage = BatteryVoltage
+            Volts = f"{BatteryVoltage} V"
+            self.parent.text_battery.delete(1.0, tk.END)
+            self.parent.text_battery.insert(tk.END, Volts)            
+            self.parent.text_battery.update()
+            if  BatteryVoltage < MINBATTERY:
+                raise TypeError(f"Battery is less than {MINBATTERY}V, charge before trying again! Measured: {BatteryVoltage}V")
+
             try:
                 self.DUTsprinkler.UID = self.DUTMLB.get_account_id().string
             except pyoto.NotInitializedException:
                 self.DUTsprinkler.UID = None
             except pyoto.TooLongException:
-                self.DUTsprinkler.UID = ""
+                self.DUTsprinkler.UID = None
             except Exception as e:
                 raise TypeError("Error reading UID from OtO!\n" + str(repr(e)))
             if self.DUTsprinkler.UID != None:  # wifi will mess us up, let's remove the UID from the OtO
@@ -105,12 +99,55 @@ class TestPeripherals:
                     self.DUTMLB.set_valve_home_centidegrees(int(self.DUTsprinkler.valveOffset))
                 if self.DUTsprinkler.nozzleOffset != None:
                     self.DUTMLB.set_nozzle_home_centidegrees(int(self.DUTsprinkler.nozzleOffset))
+
+            self.DUTsprinkler.macAddress = self.DUTMLB.get_mac_address().string
+            self.parent.textMAC.delete(1.0, tk.END)
+            self.parent.textMAC.insert(tk.END, self.DUTsprinkler.macAddress)            
+            self.parent.textMAC.update()
+
+            try:
+                self.DUTsprinkler.deviceID = self.DUTMLB.get_device_id().string
+            except:
+                self.DUTsprinkler.deviceID = "None"
+            self.parent.text_device_id.delete(1.0, tk.END)
+            self.parent.text_device_id.insert(tk.END, self.DUTsprinkler.deviceID)            
+            self.parent.text_device_id.update()
+
+            try:
+                self.DUTsprinkler.bomNumber = self.DUTMLB.get_device_hardware_version().string
+            except:
+                self.DUTsprinkler.bomNumber = "None"
+            self.parent.text_bom_number.delete(1.0, tk.END)
+            self.parent.text_bom_number.insert(tk.END, self.DUTsprinkler.deviceID)            
+            self.parent.text_bom_number.update()
+
+            self.DUTsprinkler.Firmware = self.DUTMLB.get_firmware_version().string
+            self.parent.textFirmware.delete(1.0,tk.END)
+            self.parent.textFirmware.insert(tk.END, self.DUTsprinkler.Firmware)
+            self.parent.textFirmware.update()
+            if self.DUTsprinkler.Firmware < "v3":
+                self.parent.text_console_logger("changing PyOtO versions to match firmware...")
+                self.DUTMLB.stop_connection()
+                # first remove PyOtO from the module path sys.path, if it exists
+                try:
+                    sys.path.remove(os.path.dirname(__file__) + "\pyoto\otoProtocol")
+                except:
+                    pass
+                # add PyOtO2 to the module path sys.path
+                sys.path.insert(0, os.path.dirname(__file__) + "\pyoto2\otoProtocol")
+                # remove duplicate entries from the module path sys.path
+                sys.path = list(dict.fromkeys(sys.path))
+                self.ClearModules()   
+                import pyoto2.otoProtocol.otoMessageDefs as otoMessageDefs
+                import pyoto2.otoProtocol.otoCommands as pyoto
+                self.DUTMLB = pyoto.OtoInterface(pyoto.ConnectionType.UART, logger = None)
+                self.DUTMLB.start_connection(port = globalvars.PortName, reset_on_connect = False)
+
             self.DUTsprinkler.SubscribeFrequency = pyoto.SensorSubscribeFrequencyEnum.SENSOR_SUBSCRIBE_FREQUENCY_100Hz
             self.DUTsprinkler.SlowerSubscribeFrequency = pyoto.SensorSubscribeFrequencyEnum.SENSOR_SUBSCRIBE_FREQUENCY_10Hz
             self.DUTsprinkler.NoNVSException = pyoto.NotInitializedException
             self.DUTsprinkler.psig15 = otoMessageDefs.PressureSensorVersionEnum.MPRL_15_PSI_GAUGE.value
             self.DUTsprinkler.psig30 = otoMessageDefs.PressureSensorVersionEnum.MPRL_30_PSI_GAUGE.value                
-            self.DUTsprinkler.macAddress = self.DUTMLB.get_mac_address().string
             PressureSensorVersion = int(self.DUTMLB.get_pressure_sensor_version().pressure_sensor_version)
             if PressureSensorVersion == self.DUTsprinkler.psig30:
                 globalvars.PressureSensor = 206.8427  # kPa for 30psi
@@ -270,23 +307,15 @@ class GetUnitName(TestStep):
     ERRORS: dict = {"Cloud Failed": "OtO unit name function failed.",
                     "Blank BOM": "OtO computer doesn't have a BOM, can't be tested.",
                     "Can't Write": "Error writing BOM to OtO.",
-                    "No Device ID": "OtO doesn't have a unit name, won't check Firebase"}
+                    "No Device ID": "OtO doesn't have a unit name, can't be reworked"}
 
     def run_step(self, peripherals_list: TestPeripherals):
         startTime = timeit.default_timer()
 
         # If there isn't a BOM stop and error out
-        try:
-            peripherals_list.DUTsprinkler.bomNumber = peripherals_list.DUTMLB.get_device_hardware_version().string
-        except peripherals_list.DUTsprinkler.NoNVSException:
+        if peripherals_list.DUTsprinkler.bomNumber == "None":
             return GetUnitNameResult(test_status = self.ERRORS.get("Blank BOM"), step_start_time = startTime)
-        except Exception as e:
-            return GetUnitNameResult(test_status = str(e), step_start_time = startTime)
-        # Update the BOM displayed on the screen
-        existingBOM = peripherals_list.DUTsprinkler.bomNumber
-        self.parent.text_bom_number.delete(1.0,tk.END)
-        self.parent.text_bom_number.insert(tk.END, existingBOM)
-        self.parent.text_bom_number.update()
+
         # check for an existing unit name on the board. If there isn't one just use the MAC address.
         try:
             existingSerial = peripherals_list.DUTMLB.get_device_id().string
@@ -318,8 +347,9 @@ class GetUnitName(TestStep):
         if "OTO" in peripherals_list.DUTsprinkler.factoryLocation.upper():
             factory_location = "OTO_MFG"
         else:
-            factory_location = "MECO_MFG"
-        oto_generate_unit_url = "https://us-central1-oto-test-3254b.cloudfunctions.net/masterGenerateUnit"
+            factory_location = "LitensAftermarket"
+        # oto_generate_unit_url = "https://us-central1-oto-test-3254b.cloudfunctions.net/masterGenerateUnit"
+        oto_generate_unit_url = "https://asia-east2-oto-test-3254b.cloudfunctions.net/masterGenerateUnit"
         # oto_generate_unit_url = 'https://meco-accessor-service-ugegz6xfpa-pd.a.run.app/oto/meco/masterGenerateUnit'
         requestJson = {
             "key": "XJhbCu4ujfJF3Ugu",
@@ -764,6 +794,141 @@ class NozzleRotationTestWithSubscribeResult(TestResult):
         self.Friction_Points = Friction_Points
         self.Nozzle_Rotation_Data = Nozzle_Rotation_Data
 
+class PrintBoxLabel(TestStep):
+    ERRORS: Dict[str,str] = {"No Printer": 'Unable to locate printer "ZDesigner ZD421-300dpi ZPL BOX".',
+                             "No File": "Unable to locate default label file.",
+                             "Undocumented SKU": "No SKU found for this BOM."
+                             }
+    def __init__(self, name: str , number_of_prints: int, parent: tk):
+        super().__init__(name, parent)
+        self.number_of_prints = number_of_prints
+
+    def run_step(self, peripherals_list: TestPeripherals):
+        startTime = timeit.default_timer()
+        try:
+            if socket.gethostname() in KK_LAPTOP_LIST:
+                peripherals_list.DUTsprinkler.batchNumber = getBatchFirebase.main(targetDeviceID=peripherals_list.DUTsprinkler.deviceID)
+            with open(file=str(pathlib.Path(__file__).parent / 'Label Printing'/ r"OtO box Rework UPC BOM label.prn"),encoding='utf-8',errors='ignore') as default_label:
+                # Grab ZPL Text
+                zpl_text = default_label.read() # expected to be a byte string at the very end?
+                # Find All Fields and Replace
+                sku_pattern = re.compile(re.escape("<SKU>"))
+                if "6014-G" in peripherals_list.DUTsprinkler.bomNumber:
+                    peripherals_list.DUTsprinkler.SKU = "5102-D"
+                elif "6014-H" in peripherals_list.DUTsprinkler.bomNumber:
+                    peripherals_list.DUTsprinkler.SKU = "5102-E"
+                elif "6014-J" in peripherals_list.DUTsprinkler.bomNumber:
+                    peripherals_list.DUTsprinkler.SKU = "5102-F"
+                elif peripherals_list.DUTsprinkler.bomNumber == "6014-K1":
+                    peripherals_list.DUTsprinkler.SKU = "5102-G"
+                elif peripherals_list.DUTsprinkler.bomNumber == "6014-L":
+                    peripherals_list.DUTsprinkler.SKU = "5102-H"
+                elif peripherals_list.DUTsprinkler.bomNumber == "6014-M":
+                    peripherals_list.DUTsprinkler.SKU = "5102-J"
+                elif peripherals_list.DUTsprinkler.bomNumber == "6014-N":
+                    peripherals_list.DUTsprinkler.SKU = "5102-K"
+                elif peripherals_list.DUTsprinkler.bomNumber == "6014-NT":
+                    peripherals_list.DUTsprinkler.SKU = "5102-KT"
+                elif peripherals_list.DUTsprinkler.bomNumber == "6014-P":
+                    peripherals_list.DUTsprinkler.SKU = "5102-L"
+                elif peripherals_list.DUTsprinkler.bomNumber == "6014-PT":
+                    peripherals_list.DUTsprinkler.SKU = "5102-LT"
+                elif peripherals_list.DUTsprinkler.bomNumber == "6014-R":
+                    peripherals_list.DUTsprinkler.SKU = "5102-M"
+                elif peripherals_list.DUTsprinkler.bomNumber == "6014-RT":
+                    peripherals_list.DUTsprinkler.SKU = "5102-MT"
+                elif peripherals_list.DUTsprinkler.bomNumber == "6014-T":
+                    peripherals_list.DUTsprinkler.SKU = "5102-N"
+                else:
+                    return PrintBoxLabelResult(test_status=self.ERRORS.get("Undocumented OtO Unit Type / BOM number"), step_start_time= startTime)
+                zpl_text = sku_pattern.sub(peripherals_list.DUTsprinkler.SKU, zpl_text)
+                batch_pattern = re.compile(re.escape("<mfg>"))
+                zpl_text = batch_pattern.sub(peripherals_list.DUTsprinkler.batchNumber, zpl_text)
+                FCCIDandIC_pattern = re.compile(re.escape("<R>"))
+                bomSuffix = "F"
+                zpl_text = FCCIDandIC_pattern.sub(bomSuffix, zpl_text)
+                default_label.close()
+                # Create Zebra Object (see zebra library)
+                zebra_printer = Zebra()
+                # Check Printer Exists
+                if ('ZDesigner ZD421-300dpi ZPL BOX' in zebra_printer.getqueues()):
+                    for print_instances in range(self.number_of_prints):
+                        zebra_printer.setqueue('ZDesigner ZD421-300dpi ZPL BOX')
+                        zebra_printer.output(commands = zpl_text, encoding='utf-8')
+                else:
+                    return PrintBoxLabelResult(test_status = self.ERRORS.get("No Printer"), step_start_time = startTime)
+        except IOError or FileNotFoundError:
+            return PrintBoxLabelResult(test_status=self.ERRORS.get("No File"),step_start_time = startTime)
+        return PrintBoxLabelResult(test_status = None, step_start_time = startTime)
+
+class PrintBoxLabelResult(TestResult):
+
+    def __init__(self, test_status: Union[str, None], step_start_time: float):
+        super().__init__(test_status, step_start_time)
+
+class PrintDeviceLabel(TestStep):
+    ERRORS: Dict[str,str] = {"No Printer": 'Unable to locate printer "ZDesigner ZD420-300dpi ZPL", "ZDesigner ZD421-300dpi ZPL" or "ZDesigner ZD421CN-300dpi ZPL".\n无法找到打印机“Zdesigner ZD420-300dpi ZPL" 或者"Zdesiginer ZD421-300dpi ZPL", "ZDesigner ZD421CN-300dpi ZPL"',
+                             "No File": "Unable to locate label file.  无法找到标贴文件"
+                             }
+    def __init__(self, name: str , parent: tk):
+        super().__init__(name, parent)
+
+    def run_step(self, peripherals_list: TestPeripherals):
+        startTime = timeit.default_timer()
+        if socket.gethostname() in KK_LAPTOP_LIST:
+            peripherals_list.DUTsprinkler.batchNumber = getBatchFirebase.main(targetDeviceID = peripherals_list.DUTsprinkler.deviceID)
+        CurrentBOM = peripherals_list.DUTsprinkler.bomNumber
+        if len(CurrentBOM) < 6 or CurrentBOM[0:4] not in "6014 6114 6214":
+            return PrintDeviceLabelResult(test_status = f"OtO has invalid BOM, can't print 洒水器的BOM号无效,无法打印: {CurrentBOM}", step_start_time = startTime)            
+        if CurrentBOM[5] < "L" and CurrentBOM[0:4] == "6014":
+            printfile = "ZD 2022 Lid Label MAC.prn"
+        else:
+            printfile = "ZD 2024 Lid Label MAC.prn"
+        try:
+            with open(file = str(pathlib.Path(__file__).parent / "Label Printing"/ printfile), encoding = "utf-8", errors = "ignore") as default_label:
+                # Grab ZPL Text
+                zpl_text = default_label.read() # expected to be a byte string at the very end?
+                # Find All Fields and Replace
+                device_pattern = re.compile(re.escape("<DEVICEID>"))
+                zpl_text = device_pattern.sub(peripherals_list.DUTsprinkler.deviceID, zpl_text)
+                bom_pattern = re.compile(re.escape("<BOM>"))
+                zpl_text = bom_pattern.sub(peripherals_list.DUTsprinkler.bomNumber, zpl_text)
+                batch_pattern = re.compile(re.escape("<D>"))
+                zpl_text = batch_pattern.sub(peripherals_list.DUTsprinkler.batchNumber, zpl_text)
+                MAC_pattern = re.compile(re.escape("<MAC>"))
+                zpl_text = MAC_pattern.sub(peripherals_list.DUTsprinkler.macAddress, zpl_text)
+                default_label.close()
+                # Create Zebra Object (see zebra library)
+                zebra_printer = Zebra()
+                # Check Printer Exists
+                if ('ZDesigner ZD420-300dpi ZPL' in zebra_printer.getqueues()):
+                    for print in range(self.number_of_prints):
+                        zebra_printer.setqueue("ZDesigner ZD420-300dpi ZPL")
+                        zebra_printer.output(commands = zpl_text, encoding = "utf-8")
+                        peripherals_list.DUTsprinkler.Printed = True
+                elif ('ZDesigner ZD421-300dpi ZPL' in zebra_printer.getqueues()):
+                    for print in range(self.number_of_prints):
+                        zebra_printer.setqueue("ZDesigner ZD421-300dpi ZPL")
+                        zebra_printer.output(commands = zpl_text, encoding = "utf-8")
+                        peripherals_list.DUTsprinkler.Printed = True
+                elif ('ZDesigner ZD421CN-300dpi ZPL' in zebra_printer.getqueues()):
+                    for print in range(self.number_of_prints):
+                        zebra_printer.setqueue("ZDesigner ZD421CN-300dpi ZPL")
+                        zebra_printer.output(commands = zpl_text, encoding = "utf-8")
+                        peripherals_list.DUTsprinkler.Printed = True
+                else:
+                    return PrintDeviceLabelResult(test_status = self.ERRORS.get("No Printer"), step_start_time = startTime)
+        except IOError or FileNotFoundError:
+            return PrintDeviceLabelResult(test_status = self.ERRORS.get("No File"), step_start_time = startTime)
+        except Exception as e:
+            return PrintDeviceLabelResult(test_status = str(e), step_start_time = startTime)
+        return PrintDeviceLabelResult(test_status = None, step_start_time = startTime)
+
+class PrintDeviceLabelResult(TestResult):
+
+    def __init__(self, test_status: Union[str, None], step_start_time: float):
+        super().__init__(test_status, step_start_time)
+
 class PressureCheck(TestStep):
     "Reads pressure sensor for the number of seconds specified, used for Zero, Closed Valve and Fully Open tests"
     ERRORS:dict = {
@@ -945,7 +1110,7 @@ class PressureCheck(TestStep):
             return PressureCheckResult(test_status = f"Set Min and Max: {round(ADCtokPA(min_acceptable_ADC), 3) , round(ADCtokPA(max_acceptable_ADC), 3)}, pressure: {round(ADCtokPA(mean), 3)}",
                 step_start_time = startTime, Zero_P = mean, Zero_P_Tolerance = Zero_Tolerance)
 
-        return PressureCheckResult(test_status = f"±Zero Pressure Reading: {round(ADCtokPA(mean), 3)} kPa, σ: {round(RelativekPA(standardDeviation), 3)} kPa", step_start_time = startTime, Zero_P = mean, Zero_P_Tolerance= Zero_Tolerance)
+        return PressureCheckResult(test_status = f"±Zero Pressure Reading: {round(ADCtokPA(mean), 3)} kPa, σ: {round(RelativekPA(standardDeviation), 3)} kPa over {self.data_collection_time} seconds", step_start_time = startTime, Zero_P = mean, Zero_P_Tolerance= Zero_Tolerance)
             
 class PressureCheckResult(TestResult):
     def __init__(self, test_status: Union[str, None], step_start_time: float, Zero_P:int, Zero_P_Tolerance:int):
@@ -986,27 +1151,28 @@ class SendNozzleHomeResult(TestResult):
 class TestBattery(TestStep):
     "Query battery voltage from unit"
 
-    PASS_VOLTAGE:float = 3.5 #4.2V is full, based on stats of 141 units Dec 2023 at Meco
     ERRORS: Dict[str,str] = {"Low Battery": "Battery voltage is very low!",
                          "No Reading": "Error reading battery voltage."
                          }
 
     def run_step(self, peripherals_list: TestPeripherals):
         startTime = timeit.default_timer()
-        battVoltage = 0
+        battVoltages = []
+        for i in range(0, 3):
+            battVoltages.extend([float(peripherals_list.DUTMLB.get_voltages().battery_voltage_v)])
+        battVoltage = round(np.average(battVoltages), 3)
         try:  # confirm board has been voltage calibrated before continuing
             v41calibration = peripherals_list.DUTMLB.get_calibration_voltages().calib_4v1
         except peripherals_list.DUTsprinkler.NoNVSException:
             v41calibration = None
         except Exception as f:  # board was not voltage calibrated
-            return TestBatteryResult(test_status = str(f), actual_voltage = battVoltage, step_start_time= startTime, pass_criteria = self.PASS_VOLTAGE)
-        battVoltage = round(float(peripherals_list.DUTMLB.get_voltages().battery_voltage_v), 3)
+            return TestBatteryResult(test_status = str(f), actual_voltage = battVoltage, step_start_time= startTime, pass_criteria = MINBATTERY)
         peripherals_list.DUTsprinkler.batteryVoltage = battVoltage
-        if battVoltage < self.PASS_VOLTAGE:
-            return TestBatteryResult(test_status = self.ERRORS.get("Low Battery") + f"({battVoltage}V), calibration value: {v41calibration}", actual_voltage = battVoltage, step_start_time= startTime, pass_criteria = self.PASS_VOLTAGE)
+        if battVoltage < MINBATTERY:
+            return TestBatteryResult(test_status = self.ERRORS.get("Low Battery") + f"({battVoltage}V), calibration value: {v41calibration}", actual_voltage = battVoltage, step_start_time= startTime, pass_criteria = MINBATTERY)
         elif battVoltage == 0:
-            return TestBatteryResult(test_status = self.ERRORS.get("No Reading") + f", calibration value: {v41calibration}", actual_voltage = battVoltage, step_start_time = startTime, pass_criteria = self.PASS_VOLTAGE)
-        return TestBatteryResult(test_status = f"±Battery: {battVoltage}V, calibration value: {v41calibration}", step_start_time = startTime, actual_voltage = battVoltage, pass_criteria = self.PASS_VOLTAGE)
+            return TestBatteryResult(test_status = self.ERRORS.get("No Reading") + f", calibration value: {v41calibration}", actual_voltage = battVoltage, step_start_time = startTime, pass_criteria = MINBATTERY)
+        return TestBatteryResult(test_status = f"±Battery: {battVoltage}V, calibration value: {v41calibration}", step_start_time = startTime, actual_voltage = battVoltage, pass_criteria = MINBATTERY)
 
 class TestBatteryResult(TestResult):
     def __init__(self, pass_criteria: float, actual_voltage: float, test_status,step_start_time):
