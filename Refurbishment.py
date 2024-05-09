@@ -27,7 +27,7 @@ class EOLLocationError(Exception):
 class LogFileLocationError(Exception):
     pass
 
-class MainWindow(tk.Tk): 
+class MainWindow(tk.Tk):
     ProgramVersion = "v0.9α"
     BAD_COLOUR = "RED"
     GOOD_COLOUR = "GREEN"
@@ -297,16 +297,16 @@ class MainWindow(tk.Tk):
 
         try:
             if self.test_suite.test_type == "EOL":
-                if not hasattr(self.test_suite.test_devices, "gpioSuite"):
-                    new_gpio = GpioSuite()
-                    self.test_suite.test_devices.add_device(new_object = new_gpio)
-                if not hasattr(self.test_suite.test_devices,"i2cSuite"):
-                    new_i2c = I2CSuite()
-                    self.test_suite.test_devices.add_device(new_object = new_i2c)
+                # if not hasattr(self.test_suite.test_devices, "gpioSuite"):
+                #     new_gpio = GpioSuite()
+                #     self.test_suite.test_devices.add_device(new_object = new_gpio)
+                # if not hasattr(self.test_suite.test_devices,"i2cSuite"):
+                #     new_i2c = I2CSuite()
+                #     self.test_suite.test_devices.add_device(new_object = new_i2c)
                 new_oto = otoSprinkler()
                 self.test_suite.test_devices.add_device(new_object = new_oto)  # always reinitialize connection and create new sprinkler
-                # pull info from the EOL PCB. factoryLocation and 
-                self.test_suite.test_devices.DUTsprinkler.factoryLocation, self.test_suite.test_devices.DUTsprinkler.testFixtureName = self.test_suite.test_devices.gpioSuite.getBoardInfo()
+                # pull info from the EOL PCB. factoryLocation and fixture name
+                # self.test_suite.test_devices.DUTsprinkler.factoryLocation, self.test_suite.test_devices.DUTsprinkler.testFixtureName = self.test_suite.test_devices.gpioSuite.getBoardInfo()
             else:
                 self.text_console_logger(display_message = "UNEXPECTED PROGRAM ERROR!")
         except Exception as e:
@@ -497,7 +497,7 @@ class MainWindow(tk.Tk):
             self.one_button_to_rule_them_all.configure(state = "normal")
             self.turn_valve_button.configure(state = "normal")
             return None
-        elif FunctionName in "Check Battery Zero Pressure Check Send Nozzle Home Nozzle Rotation Test":  # these functions don't need control board
+        elif FunctionName in "Zero Pressure Check Send Nozzle Home Nozzle Rotation Test":  # these functions don't need control board
             try:
                 self.test_suite.test_devices.add_device(new_object = otoSprinkler())
             except Exception as e:
@@ -532,7 +532,7 @@ class MainWindow(tk.Tk):
             if FunctionName in "Test Pump 1 Test Pump 2 Test Pump 3":
                 self.vac_interrupt()
             self.initialize_devices()
-            self.eol_pcb_init()
+            # self.eol_pcb_init()
         except Exception as e:
             self.text_console.configure(bg = self.IN_PROCESS_COLOUR)
             if str(e) == "Ping Failed":

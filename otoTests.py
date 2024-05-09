@@ -15,6 +15,7 @@ from otoSprinkler import otoSprinkler
 import numpy as np
 import math
 import tkinter as tk
+from tkinter import simpledialog
 import json
 import matplotlib
 import globalvars
@@ -315,7 +316,10 @@ class GetUnitName(TestStep):
         existingSerial = peripherals_list.DUTsprinkler.deviceID
         existingBOM = peripherals_list.DUTsprinkler.bomNumber
         if existingBOM == "None":
-            existingBOM = GetBOM
+            BOMs = ("6114-E", "6114-F", "6214-D")
+            NewWindow = Modal(master = self.parent, title = "Select BOM", message = BOMs)
+            existingBOM =  None
+            # NewWindow.mainloop()
         if len(existingSerial) == 0 or existingSerial == "None":
             existingSerial = None
 
@@ -407,6 +411,15 @@ class GetUnitName(TestStep):
 class GetUnitNameResult(TestResult):
     def __init__(self, test_status, step_start_time):
         super().__init__(test_status, step_start_time)
+
+class Modal(tk.Toplevel):
+    def __init__(self, master, title, message, *args):
+        tk.Toplevel.__init__(self, master, *args)
+        self.title(title)
+        tk.Label(self, text = message).grid(row = 0, padx = 30, pady = 20)
+        tk.Button(self, text = "Close", command = self.destroy).grid(row = 1)
+        self.grab_set()
+        # self.overrideredirect(True)
 
 class NozzleRotationTestWithSubscribe(TestStep):
     ERRORS: Dict[str,str] = {"Timeout_V": "Valve didn't reach target position in time.",
