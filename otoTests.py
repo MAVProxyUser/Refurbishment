@@ -316,10 +316,7 @@ class GetUnitName(TestStep):
         existingSerial = peripherals_list.DUTsprinkler.deviceID
         existingBOM = peripherals_list.DUTsprinkler.bomNumber
         if existingBOM == "None":
-            BOMs = ("6114-E", "6114-F", "6214-D")
-            NewWindow = Modal(master = self.parent, title = "Select BOM", message = BOMs)
-            existingBOM =  None
-            # NewWindow.mainloop()
+            return GetUnitNameResult(test_status = self.ERRORS.get("Blank BOM"), step_start_time = startTime)            
         if len(existingSerial) == 0 or existingSerial == "None":
             existingSerial = None
 
@@ -411,15 +408,6 @@ class GetUnitName(TestStep):
 class GetUnitNameResult(TestResult):
     def __init__(self, test_status, step_start_time):
         super().__init__(test_status, step_start_time)
-
-class Modal(tk.Toplevel):
-    def __init__(self, master, title, message, *args):
-        tk.Toplevel.__init__(self, master, *args)
-        self.title(title)
-        tk.Label(self, text = message).grid(row = 0, padx = 30, pady = 20)
-        tk.Button(self, text = "Close", command = self.destroy).grid(row = 1)
-        self.grab_set()
-        # self.overrideredirect(True)
 
 class NozzleRotationTestWithSubscribe(TestStep):
     ERRORS: Dict[str,str] = {"Timeout_V": "Valve didn't reach target position in time.",
@@ -516,7 +504,7 @@ class NozzleRotationTestWithSubscribe(TestStep):
             self.parent.text_console_logger(self.ERRORS.get("IDK"))
 
         # End of line based method failed, try again with speed target
-        self.parent.text_console_logger(f"Trying nozzle rotation again with speed target {self.Nozzle_Speed/100}°/sec...")
+        self.parent.text_console_logger("Trying nozzle rotation again with speed target...")
         rawdata = self.Collecting_Nozzle_Rotation_Data(peripherals_list = peripherals_list, cycle = "speed")
         # data_collection_status = 0 if all OK, 1 if List is empty, 2 if Timeout, 3 Unknown
         data_collection_status = rawdata.get("Status_Check")
@@ -574,7 +562,8 @@ class NozzleRotationTestWithSubscribe(TestStep):
         NozzleCurrent: list = []
         InitialAngularDelay = 1000 # in centideg
         check_stat: int = None # Will return 0 if all OK, 1 if List is empty, 2 if Timeout, 3 Unknown
-     
+
+        self.parent.text_console_logger("Sending nozzle to home position")
         try:  # Sending Nozzle Home
             ReturnMessage = peripherals_list.DUTMLB.set_nozzle_position_home(wait_for_complete = True)
         except TimeoutError:
@@ -603,8 +592,10 @@ class NozzleRotationTestWithSubscribe(TestStep):
         Backwards = False
         # start nozzle motor turning at desired duty cycle / speed      
         if cycle == "duty":
+            self.parent.text_console_logger(f"Nozzle rotating at {self.Nozzle_Duty_Cycle}% voltage")
             peripherals_list.DUTMLB.set_nozzle_duty(duty_cycle = self.Nozzle_Duty_Cycle, direction = 1)
         else:
+            self.parent.text_console_logger(f"Nozzle rotating at {self.Nozzle_Speed}°/sec target speed")
             peripherals_list.DUTMLB.set_nozzle_speed(speed_centidegrees_per_sec = self.Nozzle_Speed, direction = 1)
         # turn on OtO data acquisition at 100Hz
         peripherals_list.DUTMLB.set_sensor_subscribe(subscribe_frequency = peripherals_list.DUTsprinkler.SubscribeFrequency)
@@ -1032,6 +1023,7 @@ class PressureCheck(TestStep):
             setting_n_output: list = []
             standardDeviation = 0
 
+            self.parent.text_console_logger(f"Reading Pressure sensor for {self.data_collection_time} seconds at {peripherals_list.DUTsprinkler.SubscribeFrequency}Hz")
             peripherals_list.DUTMLB.set_sensor_subscribe(subscribe_frequency = peripherals_list.DUTsprinkler.SubscribeFrequency) 
             time.sleep(0.1)
             peripherals_list.DUTMLB.clear_incoming_packet_log()
