@@ -42,7 +42,7 @@ class MainWindow(tk.Tk):
     def __init__(self):
         tk.Tk.__init__(self)
         self.tk.call("tk", "scaling", 1.33)  # needed to prevent graphs from growing during data updates
-        self.SCALEFACTOR = 0.99 * self.winfo_screenwidth() / 3840  # scaling based on screen size - sized for 3840 x 2160 screen
+        self.SCALEFACTOR = 1.0 * self.winfo_screenwidth() / 3840  # scaling based on screen size - sized for 3840 x 2160 screen
         self.FIGSIZEX = self.FIGSIZEX * self.SCALEFACTOR  # scaled width of chart window
         self.FIGSIZEY = self.FIGSIZEY * self.SCALEFACTOR  # scaled height of chart window
         self.CleanOnly = tk.IntVar()
@@ -161,7 +161,6 @@ class MainWindow(tk.Tk):
         # make sure CleanOnlyCheckBox is not selected if ReplaceParts is.
         if self.ReplaceParts.get() == 1:
             self.CleanOnly.set(0)
-
 
     def clear_plot(self):
         "clears all items in the plot frame"
@@ -605,8 +604,8 @@ class MainWindow(tk.Tk):
                 self.one_button_to_rule_them_all.configure(state = "normal")
                 self.turn_valve_button.configure(state = "normal")  
             return ClosePort(self.device_list)                
-        elif FunctionName in "Check OtO Charging":  # get BOM and battery voltage to determine limits
-            ResultList = self.test_suite.test_list[1].run_step(peripherals_list=self.test_suite.test_devices)  # Battery Voltage
+        elif FunctionName in "Check OtO Charging":
+            ResultList = self.test_suite.test_list[ButtonNumber].run_step(peripherals_list=self.test_suite.test_devices)  # OtO Charging
             if not ResultList.is_passed:
                 self.status_labels[ButtonNumber].configure(bg = self.BAD_COLOUR, state = "normal")
                 self.status_labels[ButtonNumber].update()
@@ -615,23 +614,12 @@ class MainWindow(tk.Tk):
                 self.one_button_to_rule_them_all.configure(state = "normal")
                 self.turn_valve_button.configure(state = "normal")
             else:
+                self.status_labels[ButtonNumber].configure(bg = self.GOOD_COLOUR, state = "normal")
+                self.status_labels[ButtonNumber].update()
                 if ResultList.test_status != None:
                     self.text_console_logger(display_message = ResultList.test_status[1:])
-                    ResultList = self.test_suite.test_list[ButtonNumber].run_step(peripherals_list=self.test_suite.test_devices)  # OtO Charging
-                    if not ResultList.is_passed:
-                        self.status_labels[ButtonNumber].configure(bg = self.BAD_COLOUR, state = "normal")
-                        self.status_labels[ButtonNumber].update()
-                        self.text_console.configure(bg = self.BAD_COLOUR)
-                        self.text_console_logger(display_message = ResultList.test_status)
-                        self.one_button_to_rule_them_all.configure(state = "normal")
-                        self.turn_valve_button.configure(state = "normal")
-                    else:
-                        self.status_labels[ButtonNumber].configure(bg = self.GOOD_COLOUR, state = "normal")
-                        self.status_labels[ButtonNumber].update()
-                        if ResultList.test_status != None:
-                            self.text_console_logger(display_message = ResultList.test_status[1:])
-                        self.one_button_to_rule_them_all.configure(state = "normal")
-                        self.turn_valve_button.configure(state = "normal")                           
+                self.one_button_to_rule_them_all.configure(state = "normal")
+                self.turn_valve_button.configure(state = "normal")                           
         elif FunctionName in "Valve Calibration Comparison":
             ResultList = ValveCalibration(name = "Valve Calibration", parent = self, reset = False).run_step(peripherals_list = self.test_suite.test_devices)  # Run valve calibration
             if not ResultList.is_passed:
