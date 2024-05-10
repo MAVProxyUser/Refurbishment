@@ -89,7 +89,7 @@ class MainWindow(tk.Tk):
         self.GraphHolder = tk.Frame(self.RightFrame, bg = self.NORMAL_COLOUR, relief = "sunken", border = int(5 *self.SCALEFACTOR), width = int(2000 * self.SCALEFACTOR), height = int(1300 * self.SCALEFACTOR))
         self.GraphHolder.grid_propagate(False)
 
-        TextWidth = 17
+        TextWidth = 18
         self.label_device_id = tk.Label(self.LeftFrame, text = "Unit Name:", font = self.smaller_font, padx = int(5 * self.SCALEFACTOR), background = coolcolour)
         self.text_device_id = tk.Label(self.LeftFrame, width = TextWidth, font = self.smaller_font, height = 1, padx = int(5 * self.SCALEFACTOR), pady = int(5 * self.SCALEFACTOR), borderwidth = int(5 * self.SCALEFACTOR), relief = "raised", anchor = "w")
         self.label_bom_number = tk.Label(self.LeftFrame, text = "BOM:", font = self.smaller_font, padx = int(5 * self.SCALEFACTOR), background = coolcolour)
