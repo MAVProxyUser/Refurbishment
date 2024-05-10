@@ -29,13 +29,13 @@ class LogFileLocationError(Exception):
 
 class MainWindow(tk.Tk):
     ProgramVersion = "v0.9α"
-    BAD_COLOUR = "RED"
-    GOOD_COLOUR = "GREEN"
+    BAD_COLOUR = "#ff6464"
+    GOOD_COLOUR = "#10aa10"
     IN_PROCESS_COLOUR = "YELLOW"
     NORMAL_COLOUR = "WHITE"
     SCALEFACTOR = 1  # scale factor is one if there are 1440 vertical pixels on the screen
     FIGSIZEX = 17  # width of chart window for a 2160 vertical pixel screen, to be scaled at the init stage
-    FIGSIZEY = 10.5 # height of chart window, for a 2160 vertical pixel screen, to be scaled at the init stage
+    FIGSIZEY = 10.7 # height of chart window, for a 2160 vertical pixel screen, to be scaled at the init stage
     DPI = 120  # scale based on monitor dots per inch
     FONTFAMILY = "Consolas"
     
@@ -48,24 +48,25 @@ class MainWindow(tk.Tk):
         self.CleanOnly = tk.IntVar()
         self.ReplaceParts = tk.IntVar()
         sns.set_theme(font = self.FONTFAMILY, font_scale = 1.7 * self.SCALEFACTOR)  # sets the default seaborn chart colours and fonts
+        coolcolour = "#daf8e3"
 
         self.device_list = TestPeripherals(parent = self)
         self.test_suite = TestSuite(name = f"OtO UNIT REFURBISHMENT {self.ProgramVersion}",
                             test_list=[
-                                GetUnitName(name = "Unit Information", parent = self),
-                                TestExternalPower(name = "Check OtO Charging", parent = self),
-                                TestPump(name = "Test Pump 1", target_pump = 1, target_pump_duty = 100, parent = self),
-                                TestPump(name = "Test Pump 2", target_pump = 2, target_pump_duty = 100, parent = self),
-                                TestPump(name = "Test Pump 3", target_pump = 3, target_pump_duty = 100, parent = self),
-                                SendNozzleHome(name = "Send Nozzle Home", parent = self),
-                                PressureCheck(name = "Zero Pressure Check", data_collection_time = 2.1, class_function= "EOL" , valve_target = None, parent = self),
-                                ValveCalibration(name = "Valve Calibration Comparison", parent = self, reset = True),
-                                VerifyValveOffsetTarget(name = "Verify Valve Closes", parent = self),
-                                TestMoesFullyOpen(name = "Fully Open Position Test", parent = self),
-                                NozzleRotationTestWithSubscribe(name = "Nozzle Rotation Test", parent = self),
-                                CheckVacSwitch(name = "Holds Pump Vacuum", parent = self),
-                                TestSolar(name = "Check Solar Panel", parent = self),
-                                PrintDeviceLabel(name = "Print Unit Label", parent = self)
+                                UnitInformation(name = "Information", parent = self),
+                                TestExternalPower(name = "Charging", parent = self),
+                                TestPump(name = "Pump 1", target_pump = 1, target_pump_duty = 100, parent = self),
+                                TestPump(name = "Pump 2", target_pump = 2, target_pump_duty = 100, parent = self),
+                                TestPump(name = "Pump 3", target_pump = 3, target_pump_duty = 100, parent = self),
+                                NozzleHome(name = "Nozzle Home", parent = self),
+                                PressureCheck(name = "Pressure Sensor", data_collection_time = 2.1, class_function= "EOL" , valve_target = None, parent = self),
+                                ValveCalibration(name = "Valve Calibration", parent = self, reset = True),
+                                ClosedLeakCheck(name = "Closed Leak Check", parent = self),
+                                ConfirmValvePosition(name = "Confirm Valve Position", parent = self),
+                                NozzleRotation(name = "Nozzle Rotation", parent = self),
+                                CheckVacSwitch(name = "Vacuum Holds", parent = self),
+                                TestSolar(name = "Solar", parent = self),
+                                PrintDeviceLabel(name = "Print Labels", parent = self)
                                 ],  
                             test_devices = self.device_list,
                             test_type = "EOL")
@@ -75,12 +76,12 @@ class MainWindow(tk.Tk):
 
         # Fixed Window Elements
         self.status_font = font.Font(family = self.FONTFAMILY, size = int(28 * self.SCALEFACTOR), weight = "normal")
-        self.smaller_font = font.Font(family = self.FONTFAMILY, size = int(24 * self.SCALEFACTOR), weight = "normal")
+        self.smaller_font = font.Font(family = self.FONTFAMILY, size = int(26 * self.SCALEFACTOR), weight = "normal")
         style = ttk.Style(self)
-        style.configure('TCheckbutton', font = self.status_font)
+        style.configure('TCheckbutton', font = self.status_font, background = coolcolour)
         self.winfo_toplevel().title(self.test_suite.name)
 
-        self.LeftFrame = tk.Frame(self, width = int(1200 * self.SCALEFACTOR), height = int(2100 * self.SCALEFACTOR), relief = "sunken", border = int(5 * self.SCALEFACTOR))
+        self.LeftFrame = tk.Frame(self, width = int(1200 * self.SCALEFACTOR), height = int(2100 * self.SCALEFACTOR), relief = "sunken", border = int(5 * self.SCALEFACTOR), background = coolcolour)
         self.LeftFrame.grid(row = 0, column = 0, padx = int(5 *self.SCALEFACTOR), pady = int (5 * self.SCALEFACTOR))
         self.RightFrame = tk.Frame(self, width = int(2200 * self.SCALEFACTOR), height = int(2100 * self.SCALEFACTOR), relief = "raised", border = int(5 * self.SCALEFACTOR))
         self.RightFrame.grid(row = 0, column = 1, padx = int(5 *self.SCALEFACTOR), pady = int (5 * self.SCALEFACTOR))        
@@ -89,16 +90,16 @@ class MainWindow(tk.Tk):
         self.GraphHolder.grid_propagate(False)
 
         TextWidth = 17
-        self.label_device_id = tk.Label(self.LeftFrame, text = "Unit Name:", font = self.smaller_font, padx = int(5 * self.SCALEFACTOR))
-        self.text_device_id = tk.Text(self.LeftFrame, width = TextWidth, font = self.smaller_font, height = 1, padx = int(5 * self.SCALEFACTOR), pady = int(5 * self.SCALEFACTOR))
-        self.label_bom_number = tk.Label(self.LeftFrame, text = "BOM:", font = self.smaller_font, padx = int(5 * self.SCALEFACTOR))
-        self.text_bom_number = tk.Text(self.LeftFrame, width = TextWidth, font = self.smaller_font, height = 1, padx = int(5 * self.SCALEFACTOR), pady = int(5 * self.SCALEFACTOR))
-        self.labelFirmware = tk.Label(self.LeftFrame, text = "Firmware:", font = self.smaller_font, padx = int(5 * self.SCALEFACTOR))
-        self.textFirmware = tk.Text(self.LeftFrame, width = TextWidth, font = self.smaller_font, height = 1, padx = int(5 * self.SCALEFACTOR), pady = int (5 * self.SCALEFACTOR))
-        self.label_battery = tk.Label(self.LeftFrame, text = "Battery:", font = self.smaller_font, padx = int(5 * self.SCALEFACTOR))
-        self.text_battery = tk.Text(self.LeftFrame, width = TextWidth, font = self.smaller_font, height = 1, padx = int(5 * self.SCALEFACTOR), pady = int(5 * self.SCALEFACTOR))
-        self.labelMAC = tk.Label(self.LeftFrame, text = "MAC:", font = self.smaller_font, padx = int(5 * self.SCALEFACTOR))
-        self.textMAC = tk.Text(self.LeftFrame, width = TextWidth, font = self.smaller_font, height = 1, padx = int(5 * self.SCALEFACTOR), pady = int(5 * self.SCALEFACTOR))
+        self.label_device_id = tk.Label(self.LeftFrame, text = "Unit Name:", font = self.smaller_font, padx = int(5 * self.SCALEFACTOR), background = coolcolour)
+        self.text_device_id = tk.Label(self.LeftFrame, width = TextWidth, font = self.smaller_font, height = 1, padx = int(5 * self.SCALEFACTOR), pady = int(5 * self.SCALEFACTOR), borderwidth = int(5 * self.SCALEFACTOR), relief = "raised", anchor = "w")
+        self.label_bom_number = tk.Label(self.LeftFrame, text = "BOM:", font = self.smaller_font, padx = int(5 * self.SCALEFACTOR), background = coolcolour)
+        self.text_bom_number = tk.Label(self.LeftFrame, width = TextWidth, font = self.smaller_font, height = 1, padx = int(5 * self.SCALEFACTOR), pady = int(5 * self.SCALEFACTOR), borderwidth = int(5 * self.SCALEFACTOR), relief = "raised", anchor = "w")
+        self.labelFirmware = tk.Label(self.LeftFrame, text = "Firmware:", font = self.smaller_font, padx = int(5 * self.SCALEFACTOR), background = coolcolour)
+        self.textFirmware = tk.Label(self.LeftFrame, width = TextWidth, font = self.smaller_font, height = 1, padx = int(5 * self.SCALEFACTOR), pady = int (5 * self.SCALEFACTOR), borderwidth = int(5 * self.SCALEFACTOR), relief = "raised", anchor = "w")
+        self.label_battery = tk.Label(self.LeftFrame, text = "Battery:", font = self.smaller_font, padx = int(5 * self.SCALEFACTOR), background = coolcolour)
+        self.text_battery = tk.Label(self.LeftFrame, width = TextWidth, font = self.smaller_font, height = 1, padx = int(5 * self.SCALEFACTOR), pady = int(5 * self.SCALEFACTOR), borderwidth = int(5 * self.SCALEFACTOR), relief = "raised", anchor = "w")
+        self.labelMAC = tk.Label(self.LeftFrame, text = "MAC:", font = self.smaller_font, padx = int(5 * self.SCALEFACTOR), background = coolcolour)
+        self.textMAC = tk.Label(self.LeftFrame, width = TextWidth, font = self.smaller_font, height = 1, padx = int(5 * self.SCALEFACTOR), pady = int(5 * self.SCALEFACTOR), borderwidth = int(5 * self.SCALEFACTOR), relief = "raised", anchor = "w")
         self.CleanOnlyCheckBox = ttk.Checkbutton(self.LeftFrame, text = " CLEANED ONLY", command = self.CleanedOnlyChecked, variable = self.CleanOnly)
         self.ReplacePartsCheckBox = ttk.Checkbutton(self.LeftFrame, text = " REPLACE PARTS", command = self.ReplacePartsChecked, variable = self.ReplaceParts)
 
@@ -122,7 +123,7 @@ class MainWindow(tk.Tk):
         self.text_console.grid(row = 0, column = 0, rowspan = 7, padx = int(5 * self.SCALEFACTOR), pady = int(5 * self.SCALEFACTOR), sticky = "NEWS")
         self.GraphHolder.grid(row = 7, column = 0, rowspan = 14, padx = int(5 * self.SCALEFACTOR), sticky = "NEWS")
         self.label_device_id.grid(row = 4, column = 0, sticky = "E", padx = int(10 * self.SCALEFACTOR))
-        self.text_device_id.grid(row = 4, column = 1, sticky = "W", padx = int(5 * self.SCALEFACTOR), pady = int(5 * self.SCALEFACTOR))
+        self.text_device_id.grid(row = 4, column = 1, padx = int(5 * self.SCALEFACTOR), pady = int(5 * self.SCALEFACTOR))
         self.label_bom_number.grid(row = 5, column = 0, sticky = "E", padx = int(10 * self.SCALEFACTOR))
         self.text_bom_number.grid(row = 5, column = 1, sticky = "W", padx = int(5 * self.SCALEFACTOR), pady = int(5 * self.SCALEFACTOR))
         self.labelFirmware.grid(row = 6, column = 0, sticky = "E", padx = int(10 * self.SCALEFACTOR))
@@ -240,8 +241,12 @@ class MainWindow(tk.Tk):
         self.abort_test_bool: bool = False
         self.test_result_list: List[TestResult] = []
         self.test_start_time: float = 0.0
-        if self.CleanOnly.get() != 0 and self.ReplaceParts.get() == 0:
-            return "Please select one of the CLEAN ONLY or REPLACE PARTS check boxes"
+        if self.CleanOnly.get() == 0 and self.ReplaceParts.get() == 0:
+            self.text_console.configure(bg = self.IN_PROCESS_COLOUR)
+            self.one_button_to_rule_them_all.configure(text = "START", bg = self.GOOD_COLOUR, fg = self.NORMAL_COLOUR, command = self.execute_tests, state = "normal")
+            self.turn_valve_button.configure(state = "normal")
+            self.text_console_logger("Please select one of the CLEAN ONLY or REPLACE PARTS check boxes")
+            return None
 
         # Step 2: Clean up window view, check for more than 1 USB board attached, start timer
         self.reset_status_color()
@@ -421,7 +426,7 @@ class MainWindow(tk.Tk):
             CurrentPump = 1
             for entry in self.test_result_list:
                 if entry.cycle_time > 0:
-                    if isinstance(entry, GetUnitNameResult):
+                    if isinstance(entry, UnitInformationResult):
                         default_row["Unit Name Time"] = entry.cycle_time
                     elif isinstance(entry, TestBatteryResult):
                         default_row["Battery Time"] = entry.cycle_time
@@ -446,7 +451,7 @@ class MainWindow(tk.Tk):
                             default_row["Pump 3 Ave Current"] = self.test_suite.test_devices.DUTsprinkler.Pump3CurrentAve
                             default_row["Pump 3 Current STD"] = self.test_suite.test_devices.DUTsprinkler.Pump3CurrentSTD
                             CurrentPump += 1
-                    elif isinstance(entry, SendNozzleHomeResult):
+                    elif isinstance(entry, NozzleHomeResult):
                         default_row["Nozzle Home Time"] = entry.cycle_time
                         default_row["Nozzle Offset"] = self.test_suite.test_devices.DUTsprinkler.nozzleOffset
                     elif isinstance(entry, PressureCheckResult):
@@ -462,12 +467,12 @@ class MainWindow(tk.Tk):
                         default_row["Peak 1 Angle"] = self.test_suite.test_devices.DUTsprinkler.Peak1Angle
                         default_row["Peak 2 Pressure"] = self.test_suite.test_devices.DUTsprinkler.ValvePeak2
                         default_row["Peak 2 Angle"] = self.test_suite.test_devices.DUTsprinkler.Peak2Angle
-                    elif isinstance(entry, VerifyValveOffsetTargetResult):
+                    elif isinstance(entry, ClosedLeakCheckResult):
                         default_row["Closed Pressure Time"] = entry.cycle_time
                         if self.test_suite.test_devices.DUTsprinkler.valveClosesAve > 0:
                             default_row["Closed Pressure"] = self.test_suite.test_devices.DUTsprinkler.valveClosesAve
                             default_row["Closed Pressure STD"] = self.test_suite.test_devices.DUTsprinkler.valveClosesSTD
-                    elif isinstance(entry, TestMoesFullyOpenResult):
+                    elif isinstance(entry, ConfirmValvePositionResult):
                         default_row["Fully Open Time"] = entry.cycle_time
                         if self.test_suite.test_devices.DUTsprinkler.valveFullyOpenTrials > 0:
                             default_row["Fully Open Trials"] = self.test_suite.test_devices.DUTsprinkler.valveFullyOpenTrials
@@ -475,7 +480,7 @@ class MainWindow(tk.Tk):
                             default_row["Fully Open 1 STD"] = self.test_suite.test_devices.DUTsprinkler.valveFullyOpen1STD
                             default_row["Fully Open 3 Ave"] = self.test_suite.test_devices.DUTsprinkler.valveFullyOpen3Ave
                             default_row["Fully Open 3 STD"] = self.test_suite.test_devices.DUTsprinkler.valveFullyOpen3STD
-                    elif isinstance(entry, NozzleRotationTestWithSubscribeResult):
+                    elif isinstance(entry, NozzleRotationResult):
                         default_row["Nozzle Time"] = entry.cycle_time
                         default_row["Nozzle Ave Current"] = self.test_suite.test_devices.DUTsprinkler.NozzleCurrentAve
                         default_row["Nozzle Current STD"] = self.test_suite.test_devices.DUTsprinkler.NozzleCurrentSTD
@@ -513,14 +518,14 @@ class MainWindow(tk.Tk):
             self.turn_valve_button.configure(state = "normal")
             return None
 
-        if FunctionName in "Holds Pump Vacuum Print Unit Label Print Box Label":
+        if FunctionName in "Vacuum Holds Print Labels":
             self.text_console_logger("This test cannot be run by itself.")
             self.status_labels[ButtonNumber].configure(bg = self.NORMAL_COLOUR, state = "normal")
             self.status_labels[ButtonNumber].update()
             self.one_button_to_rule_them_all.configure(state = "normal")
             self.turn_valve_button.configure(state = "normal")
             return None
-        elif FunctionName in "Zero Pressure Check Send Nozzle Home Nozzle Rotation Test":  # these functions don't need control board
+        elif FunctionName in "Pressure Sensor Nozzle Home Nozzle Rotation":  # these functions don't need control board
             try:
                 self.test_suite.test_devices.add_device(new_object = otoSprinkler())
             except Exception as e:
@@ -587,7 +592,7 @@ class MainWindow(tk.Tk):
                     self.text_console_logger(display_message = ResultList.test_status[1:])
                 self.one_button_to_rule_them_all.configure(state = "normal")
                 self.turn_valve_button.configure(state = "normal")
-        elif FunctionName in "Unit Information": 
+        elif FunctionName in "Information": 
             ResultList = self.test_suite.test_list[ButtonNumber].run_step(peripherals_list=self.test_suite.test_devices)
             if not ResultList.is_passed:
                 self.status_labels[ButtonNumber].configure(bg = self.BAD_COLOUR, state = "normal")
@@ -604,7 +609,7 @@ class MainWindow(tk.Tk):
                 self.one_button_to_rule_them_all.configure(state = "normal")
                 self.turn_valve_button.configure(state = "normal")  
             return ClosePort(self.device_list)                
-        elif FunctionName in "Check OtO Charging":
+        elif FunctionName in "Charging":
             ResultList = self.test_suite.test_list[ButtonNumber].run_step(peripherals_list=self.test_suite.test_devices)  # OtO Charging
             if not ResultList.is_passed:
                 self.status_labels[ButtonNumber].configure(bg = self.BAD_COLOUR, state = "normal")
@@ -620,7 +625,7 @@ class MainWindow(tk.Tk):
                     self.text_console_logger(display_message = ResultList.test_status[1:])
                 self.one_button_to_rule_them_all.configure(state = "normal")
                 self.turn_valve_button.configure(state = "normal")                           
-        elif FunctionName in "Valve Calibration Comparison":
+        elif FunctionName in "Valve Calibration":
             ResultList = ValveCalibration(name = "Valve Calibration", parent = self, reset = False).run_step(peripherals_list = self.test_suite.test_devices)  # Run valve calibration
             if not ResultList.is_passed:
                 self.status_labels[ButtonNumber].configure(bg = self.BAD_COLOUR, state = "normal")
@@ -638,7 +643,7 @@ class MainWindow(tk.Tk):
                 self.turn_valve_button.configure(state = "normal")                           
                 if ResultList.test_status != None:
                     self.text_console_logger(display_message = ResultList.test_status[1:])
-        elif FunctionName in "Check Solar Panel Fully Open Position Test":  # must turn air on and off to run these commands
+        elif FunctionName in "Solar Confirm Valve Position":  # must turn air on and off to run these commands
             ResultList = self.test_suite.test_list[ButtonNumber].run_step(peripherals_list=self.test_suite.test_devices)  # Run selected test
             if not ResultList.is_passed:
                 self.status_labels[ButtonNumber].configure(bg = self.BAD_COLOUR, state = "normal")
@@ -654,7 +659,7 @@ class MainWindow(tk.Tk):
                     self.text_console_logger(display_message = ResultList.test_status[1:])
                 self.one_button_to_rule_them_all.configure(state = "normal")
                 self.turn_valve_button.configure(state = "normal")
-        elif FunctionName in "Verify Valve Closes":
+        elif FunctionName in "Closed Leak Check":
             PauseTime = 17
             ResultList = PressureCheck(name = "Zero Pressure Check", data_collection_time = 2.1, class_function= "EOL" , valve_target = None, parent = self).run_step(peripherals_list = self.test_suite.test_devices)
             if ResultList.test_status != None:
@@ -685,11 +690,11 @@ class MainWindow(tk.Tk):
             widgets.update()
         self.text_console.configure(bg = self.NORMAL_COLOUR)
         self.text_console.update()
-        self.text_device_id.delete(1.0, tk.END)
-        self.text_bom_number.delete(1.0, tk.END)
-        self.textFirmware.delete(1.0, tk.END)
-        self.text_battery.delete(1.0, tk.END)
-        self.textMAC.delete(1.0, tk.END)
+        self.text_device_id.configure(text = "")
+        self.text_bom_number.configure(text = "")
+        self.textFirmware.configure(text = "")
+        self.text_battery.configure(text = "")
+        self.textMAC.configure(text = "")
         self.text_device_id.update()
 
         self.clear_plot()
@@ -763,16 +768,9 @@ class MainWindow(tk.Tk):
                 return ClosePort(self.device_list)
         except Exception as e:
             self.text_console.configure(bg = self.BAD_COLOUR)
-            if e == TimeoutError:
-                self.text_console_logger("OtO timed out trying to turn the valve.")
-                self.text_console_logger("Valve turn was NOT successful.")
-            else:
-                if len(str(e)) > 0:
-                    self.text_console_logger(display_message = str(e))
-                else:
-                    self.text_console_logger(display_message = "UNEXPECTED PROGRAM ERROR!")
+            self.text_console_logger("Valve turn was NOT successful.")
             self.turn_valve_button.configure(text = "Turn Valve 90°", bg = self.GOOD_COLOUR, command = self.TurnValve90, state = "normal")
-            self.one_button_to_rule_them_all.configure(state = "normal")            
+            self.one_button_to_rule_them_all.configure(state = "normal")
             return ClosePort(self.device_list)
         self.text_console_logger(display_message = "Valve successfully turned.")
         self.turn_valve_button.configure(text = "Turn Valve 90°", bg = self.GOOD_COLOUR, command = self.TurnValve90, state = "normal")
