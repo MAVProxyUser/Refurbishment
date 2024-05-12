@@ -154,12 +154,12 @@ class MainWindow(tk.Tk):
         self.one_button_to_rule_them_all.update()
 
     def CleanedOnlyChecked(self):
-        # make sure ReplacePartsCheckBox is not selected if CleanedOnly is.
+        "make sure ReplacePartsCheckBox is not selected if CleanedOnly is."
         if self.CleanOnly.get() == 1:
             self.ReplaceParts.set(0)
     
     def ReplacePartsChecked(self):
-        # make sure CleanOnlyCheckBox is not selected if ReplaceParts is.
+        "make sure CleanOnlyCheckBox is not selected if ReplaceParts is."
         if self.ReplaceParts.get() == 1:
             self.CleanOnly.set(0)
 
@@ -225,7 +225,7 @@ class MainWindow(tk.Tk):
             self.log_file_directory = (pathlib.Path(self.log_file_directory) /  test_folder)
             filename = "-TestProductionData" + str(time.strftime("%y", time.localtime())) + format(datetime.datetime.now().isocalendar()[1],"02d") + ".csv"
         else: 
-            filename = "ReturnsData.csv"
+            filename = "ReturnsData" + str(time.strftime("%y", time.localtime())) + format(datetime.datetime.now().isocalendar()[1],"02d") + ".csv"
         self.csv_file_name = (pathlib.Path(self.log_file_directory)/(str(self.test_suite.test_devices.DUTsprinkler.testFixtureName) + filename ))
 
     def execute_tests(self):
@@ -259,11 +259,10 @@ class MainWindow(tk.Tk):
 
         try:  # All encompassing error catch
 
-            # Step 3: Restart device and reinitialize objects
+            # Step 3: Restart device and reinitialize boards
             self.initialize_devices()
-            if self.test_suite.test_type == "EOL": # reset all pin states
-                self.eol_pcb_init()
-                self.vac_interrupt()
+            self.eol_pcb_init()
+            self.vac_interrupt()
 
             #Step 4: Run the test Suite
             index = 0
@@ -275,11 +274,6 @@ class MainWindow(tk.Tk):
                 if not self.test_result_list[index].is_passed:
                     self.test_suite.test_devices.DUTsprinkler.passEOL = False
                     self.test_step_failure_handler(step_number = index)
-                    # self.test_suite.test_devices.DUTsprinkler.passTime = round((timeit.default_timer() - self.test_start_time), 4)
-                    # self.log_unit_data()
-                    # self.one_button_to_rule_them_all.configure(text = "START", bg = self.GOOD_COLOUR, fg = self.NORMAL_COLOUR, command = self.execute_tests, state = "normal")
-                    # self.turn_valve_button.configure(state = "normal")
-                    # return ClosePort(self.device_list)
                 else:
                     self.status_labels[index].configure(bg = self.GOOD_COLOUR)
                     self.status_labels[index].update()
@@ -702,16 +696,12 @@ class MainWindow(tk.Tk):
 
     def test_step_failure_handler(self, step_number: int):
         "the index is required to help display the correct message and log the correct error. Updates the label to red in the gui, runs the cloud function to log the error in Firebase, resets all the gpio pins to the OFF state"
-
         error_message = self.test_result_list[step_number].test_status
         self.test_suite.test_devices.DUTsprinkler.errorStep = error_message
         self.test_suite.test_devices.DUTsprinkler.errorStepName = type(self.test_result_list[step_number]).__name__
         self.status_labels[step_number].configure(bg = self.BAD_COLOUR)
         self.status_labels[step_number].update()
-        # self.text_console.configure(bg = self.BAD_COLOUR)
         self.text_console_logger(display_message = error_message)
-        # self.eol_pcb_init()  # Turns off power, air and LED
-        # self.text_console_logger('---------------------------------  DEVICE FAILED  -----------------------------------------')
 
     def text_console_logger(self, display_message: str):
         "function to put text into the console of the gui"

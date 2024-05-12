@@ -388,6 +388,78 @@ class ClosedLeakCheckResult(TestResult):
         self.Actual_Valve_Position = Actual_Valve_Position
         self.Relative_valveOffset = Relative_valveOffset
 
+class CloudLogMfgError(TestStep):
+    "Class to log end of line test errors in Firebase"
+    TEMPLATE: Dict[str,str] = {"unitName":"",
+                     "unitMfgError":"",
+                     "unitTestStepResult":"",
+                     "eolFixtureName": ""
+                     }
+
+    def run_step(self, peripherals_list: TestPeripherals):
+        startTime = timeit.default_timer()
+        # URL = 'https://us-central1-oto-test-3254b.cloudfunctions.net/masterMfgErrorLog'
+        URL = 'https://meco-accessor-service-ugegz6xfpa-pd.a.run.app/oto/meco/masterMfgErrorLog'
+
+        if peripherals_list.DUTsprinkler.deviceID == "":
+            return CloudLogMfgErrorResult(test_status = "Unit number is blank, unable to log in the cloud.\n洒水器产品号为空, 无法记录到云服务器", step_start_time = startTime)
+
+        payload: dict = {"unitName": peripherals_list.DUTsprinkler.deviceID,
+                         "unitMfgError": peripherals_list.DUTsprinkler.errorStep,
+                         "unitTestStepResult": peripherals_list.DUTsprinkler.errorStepName,
+                         "eolFixtureName": peripherals_list.DUTsprinkler.testFixtureName
+                         }
+        cloudResult: requests.Response = requests.post(URL, json= payload)
+        if cloudResult.status_code == 200:
+            return CloudLogMfgErrorResult(test_status = None, step_start_time = startTime)
+        else:
+            ErrorResult = json.loads(cloudResult.content.decode())
+            return CloudLogMfgErrorResult(test_status = ErrorResult["error"], step_start_time = startTime)
+
+class CloudLogMfgErrorResult(TestResult):
+    def __init__(self, test_status, step_start_time):
+        super().__init__(test_status, step_start_time)
+
+class CloudSaveUnitAttributes(TestStep):
+    "Should only be used in an EOL step. If it's run without a pre-filled DUTSprinkler, it will error out."
+
+    TEMPLATE: dict = {"key": "XJhbCu4ujfJF3Ugu",
+                    "unitName":"",
+                    "flowOffset":"",
+                    "nozzleOffset":"",
+                    "bomNumber":"",
+                    "batchNumber":"",
+                    "eolFixtureName":""
+                     } #left blank on purpose. this merely shows the skeleton of what cloud fxn is expecting.
+    ERRORS = "Failed to save OtO unit information.  洒水器信息保存失败"
+    PASS = "OtO unit information successfully saved.  洒水器信息保存成功"
+
+    def run_step(self, peripherals_list: TestPeripherals):
+        startTime = timeit.default_timer()
+        URL = "https://meco-accessor-service-ugegz6xfpa-pd.a.run.app/oto/meco/masterSetOffsets"
+        # URL = "https://us-central1-oto-test-3254b.cloudfunctions.net/masterSetOffsets"
+
+        payload: dict = {
+            "key": "XJhbCu4ujfJF3Ugu",
+            "unitName": peripherals_list.DUTsprinkler.deviceID,
+            "flowOffset": peripherals_list.DUTsprinkler.valveOffset,
+            "nozzleOffset": peripherals_list.DUTsprinkler.nozzleOffset,
+            "batchNumber": peripherals_list.DUTsprinkler.batchNumber,
+            "eolFixtureName":peripherals_list.DUTsprinkler.testFixtureName
+        }
+        cloudResult: requests.Response = requests.post(URL, json = payload)
+        if cloudResult.status_code == 200:
+            peripherals_list.DUTsprinkler.CloudSave = True
+            return CloudSaveUnitAttributesResult(test_status = None, step_start_time = startTime)
+        else:
+            peripherals_list.DUTsprinkler.CloudSave = False
+            ErrorResult = json.loads(cloudResult.content.decode())
+            return CloudSaveUnitAttributesResult(test_status = ErrorResult["error"], step_start_time = startTime)
+
+class CloudSaveUnitAttributesResult(TestResult):
+    def __init__(self, test_status, step_start_time):
+        super().__init__(test_status, step_start_time)
+
 class ConfirmValvePosition(TestStep):
     "Moe's idea to check the two locations where the valve is just about to open, and compare the zero pressure values there to determine the real peak location"
 
