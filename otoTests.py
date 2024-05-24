@@ -3,6 +3,7 @@ import time
 import sys
 import os
 from datetime import datetime
+from datetime import timezone
 from typing import Union, List, Dict ,Literal
 from pprint import pformat
 import requests
@@ -21,8 +22,18 @@ import matplotlib
 import globalvars
 matplotlib.use('Agg')   # needed to prevent multi-thread failures when using matplotlib
 from matplotlib import pyplot as plt
+import firebase_admin
+from firebase_admin import firestore
+from google.cloud import firestore_v1
+import subprocess
+import pyoto.otoProtocol.otoMessageDefs as otoMessageDefs
+import pyoto.otoProtocol.otoCommands as pyoto
+from zebra import Zebra
+import re
 
-MINBATTERY:float = 3.5 #4.2V is full, based on stats of 141 units Dec 2023 at Meco
+ESPTOOL_DIR = (pathlib.Path(__file__).parent / "esptool").resolve()
+ESPTOOL_PY_DIR = (ESPTOOL_DIR / "esptool.py").resolve()
+MINBATTERY:float = 3.6 #4.2V is full, based on stats of 141 units Dec 2023 at Meco
 
 class TestPeripherals:
     "This class will sort the inputs into objects that have been predefined. Only one com port is supported, and the program won't run if more than one USB card is connected."
@@ -43,24 +54,14 @@ class TestPeripherals:
         "adds a new OtOSprinkler, GPIOSuite or I2CSuite class to TestPeriperals. Adding an OtOSprinkler will connect to the OtO to determine PyOtO version, remove SSID if it exists to prevent errors."
         if isinstance(new_object, otoSprinkler):
             self.DUTsprinkler = new_object
-            # first remove PyOtO 2 from the module path sys.path, if it exists
-            try:
-                sys.path.remove(os.path.dirname(__file__) + "\pyoto2\otoProtocol")
-            except:
-                pass
-            # add PyOtO to the module path sys.path
-            sys.path.insert(0, os.path.dirname(__file__) + "\pyoto\otoProtocol")
-            # remove duplicate entries from the module path sys.path
-            sys.path = list(dict.fromkeys(sys.path))
-            self.ClearModules()
-            import pyoto.otoProtocol.otoMessageDefs as otoMessageDefs
-            import pyoto.otoProtocol.otoCommands as pyoto
+            ChangePyOtO(peripherals_list = self, version = 1)
             self.parent.text_console_logger("Connecting to OtO...")
             self.DUTMLB = pyoto.OtoInterface(pyoto.ConnectionType.UART, logger = None)
             self.DUTMLB.start_connection(port = globalvars.PortName, reset_on_connect = True)
             
-            self.parent.text_console_logger("Checking OtO...")
+            self.parent.text_console_logger("Reading OtO settings...")
 
+            # Check Battery voltage, quit if it's too low.
             BatteryVoltage = round(float(self.DUTMLB.get_voltages().battery_voltage_v), 3)
             self.DUTsprinkler.batteryVoltage = BatteryVoltage
             Volts = f"{BatteryVoltage} V"
@@ -68,7 +69,6 @@ class TestPeripherals:
             self.parent.text_battery.update()
             if  BatteryVoltage < MINBATTERY:
                 raise TypeError(f"Battery is less than {MINBATTERY}V, charge before trying again! Measured: {BatteryVoltage}V")
-
             try:
                 self.DUTsprinkler.UID = self.DUTMLB.get_account_id().string
             except pyoto.NotInitializedException:
@@ -99,6 +99,11 @@ class TestPeripherals:
                     self.parent.text_console_logger(f"Restoring nozzle offset: {self.DUTsprinkler.nozzleOffset/100}°")
                     self.DUTMLB.set_nozzle_home_centidegrees(int(self.DUTsprinkler.nozzleOffset))
 
+            try:  # confirm board has been voltage calibrated before continuing
+                self.DUTsprinkler.v41calibration = int(self.DUTMLB.get_calibration_voltages().calib_4v1)
+            except Exception as f:  # board was not voltage calibrated, quit
+                raise TypeError("This unit wasn't voltage calibrated, DON'T REFURBISH THIS OtO!")
+
             self.DUTsprinkler.macAddress = self.DUTMLB.get_mac_address().string
             self.parent.textMAC.configure(text = self.DUTsprinkler.macAddress)            
             self.parent.textMAC.update()
@@ -106,35 +111,30 @@ class TestPeripherals:
             try:
                 self.DUTsprinkler.deviceID = self.DUTMLB.get_device_id().string
             except:
-                self.DUTsprinkler.deviceID = ""
+                self.DUTsprinkler.deviceID = None
+            if self.DUTsprinkler.deviceID == "":
+                self.DUTsprinkler.deviceID = None
             self.parent.text_device_id.configure(text = self.DUTsprinkler.deviceID)            
             self.parent.text_device_id.update()
 
             try:
                 self.DUTsprinkler.bomNumber = self.DUTMLB.get_device_hardware_version().string
+                self.parent.text_bom_number.configure(text = self.DUTsprinkler.bomNumber)            
+                self.parent.text_bom_number.update()
             except:
-                self.DUTsprinkler.bomNumber = "None"
-            self.parent.text_bom_number.configure(text = self.DUTsprinkler.bomNumber)            
-            self.parent.text_bom_number.update()
+                raise TypeError("This unit does not have a BOM, DO NOT REFURBISH!")
+
+            if self.DUTsprinkler.bomNumber[0:4] not in "6114 6214":
+                raise TypeError(f"This is an old unit {self.DUTsprinkler.bomNumber}, DO NOT REFURBISH!")
 
             self.DUTsprinkler.Firmware = self.DUTMLB.get_firmware_version().string
             self.parent.textFirmware.configure(text = self.DUTsprinkler.Firmware)
             self.parent.textFirmware.update()
+
             if self.DUTsprinkler.Firmware < "v3":
                 self.parent.text_console_logger("changing PyOtO versions to match firmware...")
                 self.DUTMLB.stop_connection()
-                # first remove PyOtO from the module path sys.path, if it exists
-                try:
-                    sys.path.remove(os.path.dirname(__file__) + "\pyoto\otoProtocol")
-                except:
-                    pass
-                # add PyOtO2 to the module path sys.path
-                sys.path.insert(0, os.path.dirname(__file__) + "\pyoto2\otoProtocol")
-                # remove duplicate entries from the module path sys.path
-                sys.path = list(dict.fromkeys(sys.path))
-                self.ClearModules()   
-                import pyoto2.otoProtocol.otoMessageDefs as otoMessageDefs
-                import pyoto2.otoProtocol.otoCommands as pyoto
+                ChangePyOtO(peripherals_list = self, version = 2)
                 self.DUTMLB = pyoto.OtoInterface(pyoto.ConnectionType.UART, logger = None)
                 self.DUTMLB.start_connection(port = globalvars.PortName, reset_on_connect = False)
 
@@ -150,6 +150,7 @@ class TestPeripherals:
                 globalvars.PressureSensor = 103.4214  # kPa for 15psi
             else:
                 globalvars.PressureSensor = 0  # error value
+            self.OtOdatabase:firestore_v1.Client = retrieveFirestore()
         elif isinstance(new_object, GpioSuite):
             self.gpioSuite = new_object
         elif isinstance(new_object, I2CSuite):
@@ -157,15 +158,6 @@ class TestPeripherals:
         else:
             raise TypeError("UNEXPECTED PROGRAM ERROR!")
         
-    def ClearModules(self):
-        "removes PyOtO modules from memory to allow switching between PyOtO versions"
-        ModuleList = ["otoPacket", "otoMessageDefs", "otoCommands", "otoUart", "otoBle"]
-        for ModuleName in ModuleList:
-            try:
-                del sys.modules[ModuleName]
-            except:
-                pass
-
 class TestResult:
     "Abstract Class, can only be called when used with a specific test. This should have the most generic init and we can reinit more things in the child class."
 
@@ -215,14 +207,6 @@ class TestSuite:
         for i, step in enumerate(self.test_list):
             test_result_list.append(step.run_step(peripherals_list = peripherals_list))
         return test_result_list
-
-def ADCtokPA(ADCValue):
-    "converts ADC pressure to kPa"
-    return round(((ADCValue - 1677721.6)/13421772.8)*globalvars.PressureSensor, 5)
-
-def RelativekPA(ADCValue):
-    "relative conversion ADC to kPa"
-    return round((ADCValue/13421772.8)*globalvars.PressureSensor, 5)
 
 class CheckVacSwitch(TestStep):
     "Checks is vacuum switches are on"
@@ -398,11 +382,11 @@ class CloudLogMfgError(TestStep):
 
     def run_step(self, peripherals_list: TestPeripherals):
         startTime = timeit.default_timer()
-        # URL = 'https://us-central1-oto-test-3254b.cloudfunctions.net/masterMfgErrorLog'
-        URL = 'https://meco-accessor-service-ugegz6xfpa-pd.a.run.app/oto/meco/masterMfgErrorLog'
+        URL = 'https://us-central1-oto-test-3254b.cloudfunctions.net/masterMfgErrorLog'
+        # URL = 'https://meco-accessor-service-ugegz6xfpa-pd.a.run.app/oto/meco/masterMfgErrorLog'
 
         if peripherals_list.DUTsprinkler.deviceID == "":
-            return CloudLogMfgErrorResult(test_status = "Unit number is blank, unable to log in the cloud.\n洒水器产品号为空, 无法记录到云服务器", step_start_time = startTime)
+            return CloudLogMfgErrorResult(test_status = "Unit number is blank, unable to log in the cloud.", step_start_time = startTime)
 
         payload: dict = {"unitName": peripherals_list.DUTsprinkler.deviceID,
                          "unitMfgError": peripherals_list.DUTsprinkler.errorStep,
@@ -1030,9 +1014,7 @@ class PrintBoxLabel(TestStep):
     def run_step(self, peripherals_list: TestPeripherals):
         startTime = timeit.default_timer()
         try:
-            if socket.gethostname() in KK_LAPTOP_LIST:
-                peripherals_list.DUTsprinkler.batchNumber = getBatchFirebase.main(targetDeviceID=peripherals_list.DUTsprinkler.deviceID)
-            with open(file=str(pathlib.Path(__file__).parent / 'Label Printing'/ r"OtO box Rework UPC BOM label.prn"),encoding='utf-8',errors='ignore') as default_label:
+            with open(file=str(pathlib.Path(__file__).parent / "Labels" / "OtO box Rework UPC BOM label.prn"),encoding='utf-8',errors='ignore') as default_label:
                 # Grab ZPL Text
                 zpl_text = default_label.read() # expected to be a byte string at the very end?
                 # Find All Fields and Replace
@@ -1091,16 +1073,14 @@ class PrintBoxLabelResult(TestResult):
         super().__init__(test_status, step_start_time)
 
 class PrintDeviceLabel(TestStep):
-    ERRORS: Dict[str,str] = {"No Printer": 'Unable to locate printer "ZDesigner ZD420-300dpi ZPL", "ZDesigner ZD421-300dpi ZPL" or "ZDesigner ZD421CN-300dpi ZPL".\n无法找到打印机“Zdesigner ZD420-300dpi ZPL" 或者"Zdesiginer ZD421-300dpi ZPL", "ZDesigner ZD421CN-300dpi ZPL"',
-                             "No File": "Unable to locate label file.  无法找到标贴文件"
+    ERRORS: Dict[str,str] = {"No Printer": 'Unable to locate printer "ZDesigner ZD421-300dpi DEVICE ZPL"',
+                             "No File": "Unable to locate label file."
                              }
     def __init__(self, name: str , parent: tk):
         super().__init__(name, parent)
 
     def run_step(self, peripherals_list: TestPeripherals):
         startTime = timeit.default_timer()
-        if socket.gethostname() in KK_LAPTOP_LIST:
-            peripherals_list.DUTsprinkler.batchNumber = getBatchFirebase.main(targetDeviceID = peripherals_list.DUTsprinkler.deviceID)
         CurrentBOM = peripherals_list.DUTsprinkler.bomNumber
         if len(CurrentBOM) < 6 or CurrentBOM[0:4] not in "6014 6114 6214":
             return PrintDeviceLabelResult(test_status = f"OtO has invalid BOM, can't print 洒水器的BOM号无效,无法打印: {CurrentBOM}", step_start_time = startTime)            
@@ -1125,14 +1105,9 @@ class PrintDeviceLabel(TestStep):
                 # Create Zebra Object (see zebra library)
                 zebra_printer = Zebra()
                 # Check Printer Exists
-                if ('ZDesigner ZD420-300dpi ZPL' in zebra_printer.getqueues()):
+                if ('ZDesigner ZD421-300dpi DEVICE ZPL' in zebra_printer.getqueues()):
                     for print in range(self.number_of_prints):
-                        zebra_printer.setqueue("ZDesigner ZD420-300dpi ZPL")
-                        zebra_printer.output(commands = zpl_text, encoding = "utf-8")
-                        peripherals_list.DUTsprinkler.Printed = True
-                elif ('ZDesigner ZD421-300dpi ZPL' in zebra_printer.getqueues()):
-                    for print in range(self.number_of_prints):
-                        zebra_printer.setqueue("ZDesigner ZD421-300dpi ZPL")
+                        zebra_printer.setqueue("ZDesigner ZD421-300dpi DEVICE ZPL")
                         zebra_printer.output(commands = zpl_text, encoding = "utf-8")
                         peripherals_list.DUTsprinkler.Printed = True
                 elif ('ZDesigner ZD421CN-300dpi ZPL' in zebra_printer.getqueues()):
@@ -1407,6 +1382,8 @@ class TestExternalPower(TestStep):
             CurrentFactor = 0.96
         elif peripherals_list.DUTsprinkler.testFixtureName == "OTOLab1":
             CurrentFactor = 0.764
+        elif peripherals_list.DUTsprinkler.testFixtureName == "LitensRefurb1":
+            CurrentFactor = 0.764
         else:
             CurrentFactor = 1
             ErrorAfterMeasurement = True
@@ -1440,7 +1417,7 @@ class TestExternalPower(TestStep):
             return TestExternalPowerResult(test_status = "Can't turn off external power!", step_start_time = startTime, pass_criteria = (self.PASS_VOLTAGE, self.PASS_CURRENT), actual_readings = (chargingVoltage, chargingCurrent))
 
         if ErrorAfterMeasurement:
-            return TestExternalPowerResult(test_status = f"[{chargingCurrent}A.] Must calibrate current on this new EOL board first!\n{peripherals_list.DUTsprinkler.testFixtureName}", step_start_time = startTime, pass_criteria = (self.PASS_VOLTAGE, self.PASS_CURRENT), actual_readings = (0, 0))
+            return TestExternalPowerResult(test_status = f"[{chargingCurrent}A] Must calibrate current on this new EOL board first!\n{peripherals_list.DUTsprinkler.testFixtureName}", step_start_time = startTime, pass_criteria = (self.PASS_VOLTAGE, self.PASS_CURRENT), actual_readings = (0, 0))
 
         battery_voltage = peripherals_list.DUTsprinkler.batteryVoltage
         if battery_voltage >= 4.0:  # if battery charge is high, the lower limit of current can be dramatically affected, so update the limit
@@ -1568,7 +1545,7 @@ class TestPump(TestStep):
                         if NoCurrentAvailable:
                             return TestPumpResult(test_status = f"±Pump 3: {round(timeit.default_timer() - startTime, 3)} sec", step_start_time = startTime, pass_criteria = self.PASS_TIME)
                         else:
-                            return TestPumpResult(test_status = f"±Pump 3: {round(timeit.default_timer() - startTime, 3)} sec, {peripherals_list.DUTsprinkler.Pump3CurrentAve} mA, STD {peripherals_list.DUTsprinkler.Pump3CurrentSTD} mA", step_start_time = startTime, pass_criteria = self.PASS_TIME)
+                            return TestPumpResult(test_status = f"±Pump 3: {round(timeit.default_timer() - startTime, 3)} sec, {peripherals_list.DUTsprinkler.Pump3CurrentAve} mA, σ {peripherals_list.DUTsprinkler.Pump3CurrentSTD} mA", step_start_time = startTime, pass_criteria = self.PASS_TIME)
                     else:
                         return TestPumpResult(test_status = self.ERRORS.get("Wrong Pump") + f" Expected: {self.target_pump}, Triggered: Pump 3", step_start_time = startTime, pass_criteria = self.PASS_TIME)
 
@@ -1589,10 +1566,10 @@ class TestPump(TestStep):
 
             if "-v3" not in Firmware:
                 if round(float(np.average(PumpCurrent)), 1) == 0:
-                    return TestPumpResult(test_status = f"Pump {self.target_pump} did not run. Pump current: {round(float(np.average(PumpCurrent)), 1)} mA, STD {round(float(np.std(PumpCurrent)), 2)}", step_start_time = startTime, pass_criteria = self.PASS_TIME)
+                    return TestPumpResult(test_status = f"Pump {self.target_pump} did not run. Pump current: {round(float(np.average(PumpCurrent)), 1)} mA, σ {round(float(np.std(PumpCurrent)), 2)} mA", step_start_time = startTime, pass_criteria = self.PASS_TIME)
                 elif round(float(np.average(PumpCurrent)), 1) > 600:
-                    return TestPumpResult(test_status = f"Pump {self.target_pump} is stalled. Pump current: {round(float(np.average(PumpCurrent)), 1)} mA, STD {round(float(np.std(PumpCurrent)), 2)}", step_start_time = startTime, pass_criteria = self.PASS_TIME)
-            return TestPumpResult(test_status = self.ERRORS.get("No Pumps") + f" Check {self.CAPS[self.target_pump - 1]} cap is tight. Pump current: {round(float(np.average(PumpCurrent)), 1)} mA, σ {round(float(np.std(PumpCurrent)), 2)}", step_start_time = startTime, pass_criteria = self.PASS_TIME)
+                    return TestPumpResult(test_status = f"Pump {self.target_pump} is stalled. Pump current: {round(float(np.average(PumpCurrent)), 1)} mA, σ {round(float(np.std(PumpCurrent)), 2)} mA", step_start_time = startTime, pass_criteria = self.PASS_TIME)
+            return TestPumpResult(test_status = self.ERRORS.get("No Pumps") + f" Check {self.CAPS[self.target_pump - 1]} cap is tight. Pump current: {round(float(np.average(PumpCurrent)), 1)} mA, σ {round(float(np.std(PumpCurrent)), 2)} mA", step_start_time = startTime, pass_criteria = self.PASS_TIME)
         else:
             return TestPumpResult(test_status = self.ERRORS.get("Invalid Target Pump"), step_start_time = startTime, pass_criteria = self.PASS_TIME)
 
@@ -1614,27 +1591,149 @@ class UnitInformation(TestStep):
         existingBOM = peripherals_list.DUTsprinkler.bomNumber
         if existingBOM == "None":
             return UnitInformationResult(test_status = self.ERRORS.get("Blank BOM"), step_start_time = startTime)            
-        if len(existingSerial) == 0 or existingSerial == "None":
-            existingSerial = None
 
-        ReturnMessage = self.otoGenerateSerialRequest(peripherals_list = peripherals_list, existingSerial = existingSerial)
+        ReturnMessage = self.OtOGenerateSerialRequest(peripherals_list = peripherals_list, existingSerial = existingSerial)
         if ReturnMessage != None:
             return UnitInformationResult(test_status = ReturnMessage, step_start_time = startTime)
         existingSerial = peripherals_list.DUTsprinkler.deviceID
-        self.parent.text_device_id.configure(text = existingSerial)
-        self.parent.text_device_id.update()
         if len(existingSerial) != 0: #blank units will have "" as the default value
             if existingSerial[0:3] == "oto" and len(existingSerial) == 10 and existingSerial[3:10].isnumeric():  # is the Device ID valid?
                 EstablishLoggingLocation(name = None, folder_name = None, csv_file_name = None, parent = self.parent).run_step(peripherals_list = peripherals_list)
-                # self.parent.text_console_logger(f"{existingSerial}, {existingBOM}, {peripherals_list.DUTsprinkler.macAddress}, UID => {peripherals_list.DUTsprinkler.UID}")
-                return UnitInformationResult(test_status = None, step_start_time = startTime)
+                CheckResult = CheckReturnHistory(targetDeviceID = peripherals_list.DUTsprinkler.deviceID, database = peripherals_list.OtOdatabase)
+                if CheckResult != None:
+                    return UnitInformationResult(test_status = CheckResult, step_start_time = startTime)
             else: # Invalid unit name
                 return UnitInformationResult(test_status = f"Invalid unit name: {existingSerial}", step_start_time = startTime)                
         else:
             return UnitInformationResult(test_status = self.ERRORS.get("No Device ID"), step_start_time = startTime)
         
-    def otoGenerateSerialRequest(self, peripherals_list: TestPeripherals, existingSerial: str = None):
-        "Send HTTP request to oto-generate-unit function, optionally using given unit name. Args: existingSerial (optional): given unit name if required. Returns: None if OK, otherwise error as String"
+        if peripherals_list.DUTsprinkler.bomNumber in "6114-B 6114-D 6114-E 6114-EV 6114-J 6114-K 6114-L":
+            FlashContents = "v3.1.2-v4-C"
+        elif peripherals_list.DUTsprinkler.bomNumber in "6114-G 6114-GP 6114-H 6114-HP":
+            FlashContents = "v3.1.9-v4-C"
+            if peripherals_list.DUTsprinkler.bomNumber in "6114-G 6114-H":
+                peripherals_list.DUTsprinkler.bomNumber += "P"
+        elif peripherals_list.DUTsprinkler.bomNumber in "6214-D 6214-DS 6214-DR":
+            FlashContents = "v3.1.7-v5"
+        elif peripherals_list.DUTsprinkler.bomNumber in "6214-CT":
+            FlashContents = "v3.1.8.6-v5-T"
+        else:
+            # invalid BOM, error and quit
+            return UnitInformationResult(test_status = f"Unknown BOM: {peripherals_list.DUTsprinkler.bomNumber}", step_start_time = startTime)
+        
+        if peripherals_list.DUTsprinkler.Firmware != FlashContents:
+            # grab existing serial, BOM, v41adc, valve and nozzle offsets
+            # erase board
+            # flash board with FlashContents firmware
+            Serial = peripherals_list.DUTsprinkler.deviceID
+            BOM = peripherals_list.DUTsprinkler.bomNumber
+            v41adc = peripherals_list.DUTsprinkler.v41calibration
+            try:
+                ValveOffset = peripherals_list.DUTMLB.get_valve_home_centidegrees().number
+                NozzleOffset = peripherals_list.DUTMLB.get_nozzle_home_centidegrees().number
+            except:
+                ValveOffset = None
+                NozzleOffset = None
+
+            if len(Serial) * len(BOM) * v41adc == 0 or ValveOffset == None:
+                return UnitInformationResult(test_status = "OtO is missing information, cannot be flashed", step_start_time = startTime)
+            else:
+                # make sure firmware is available before continuing, to avoid erasing a boaard without being able to reflash
+                build_folder_path = pathlib.Path(__file__).parent / FlashContents
+                flash_args_list = self.read_assemble_flash_args(build_folder_path = build_folder_path, port = globalvars.PortName)
+                if flash_args_list == None:
+                    return UnitInformationResult(test_status = "Updated firmware is not present, cannot update the board.", step_start_time = startTime)
+
+                self.parent.text_console_logger("Reflashing OtO, PLEASE WAIT!...")
+
+                # Step 1 disconnect and erase board with esptool
+                peripherals_list.DUTMLB.stop_connection()
+                ReturnMessage = self.EraseFlashEspTool(port = globalvars.PortName)
+                if ReturnMessage != None:
+                    return UnitInformationResult(test_status = ReturnMessage, step_start_time = startTime)
+
+                # Step 2 flash board
+                ReturnMessage = self.FlashUnitEspTool(port = globalvars.PortName, firmware_version = FlashContents)
+                if ReturnMessage != None:
+                    return UnitInformationResult(test_status = ReturnMessage, step_start_time = startTime)
+
+                peripherals_list.DUTsprinkler.Firmware = FlashContents
+                self.parent.textFirmware.configure(text = FlashContents)
+                self.parent.textFirmware.update()
+
+                # Step 3 reconnect to board again
+                try:
+                    self.parent.text_console_logger("Reconnecting to restore settings...")
+                    peripherals_list.DUTMLB.start_connection(port = globalvars.PortName, reset_on_connect = False)
+                except:
+                    return UnitInformationResult(test_status = "Cannot reconnect to OtO after flashing", step_start_time = startTime)
+
+                # Step 4 rewrite settings to OtO
+                ReturnMessage = self.RestoreOtOSettings(peripherals_list = peripherals_list, Serial = Serial, BOM = BOM, v41 = v41adc, valve = ValveOffset, nozzle = NozzleOffset)
+                if ReturnMessage != None:
+                    return UnitInformationResult(test_status = ReturnMessage, step_start_time = startTime)
+
+                # Step 5 disconnect and reconnect to OtO to reboot and read v41 value, enabling calibration
+                if peripherals_list.CurrentPyOtO == 2:  # if the previous firmware was pre-v3, we need to reload pyOtO
+                    try:
+                        peripherals_list.DUTMLB.stop_connection()
+                    except:
+                        pass
+                    self.parent.text_console_logger("Changing PyOtO to match new firmware...")
+                    ChangePyOtO(peripherals_list = peripherals_list, version = 1)
+                    try:
+                        peripherals_list.DUTMLB.start_connection(port = globalvars.PortName, reset_on_connect = True)
+                    except:
+                        return UnitInformationResult(test_status = "Cannot reboot OtO after restoring settings", step_start_time = startTime)
+                else:
+                    try:
+                        peripherals_list.DUTMLB.stop_connection()
+                        self.parent.text_console_logger("Reconnecting to enable voltage calibration...")
+                        peripherals_list.DUTMLB.start_connection(port = globalvars.PortName, reset_on_connect = True)
+                    except:
+                        return UnitInformationResult(test_status = "Cannot reboot OtO after restoring settings", step_start_time = startTime)
+
+        return UnitInformationResult(test_status = None, step_start_time = startTime)
+       
+    def EraseFlashEspTool(self, port: str):
+        "Erase the entire chip flash: port = name of com port; Returns: None if success, Error string if fail"
+        flash_args_list = ["--chip", "esp32", "--port", port, "erase_flash"]
+        try:
+            # Run esptool with args esptool.main(flash_args_list), include explicit path to improve path search speed during execution
+            popen = subprocess.Popen(args = [str(sys.executable), str(ESPTOOL_PY_DIR), *flash_args_list], stdout = subprocess.PIPE, stderr = subprocess.PIPE, universal_newlines = True)
+            while popen.poll() is None:
+                text = popen.stdout.readline()
+                text = text[0:len(text) - 1]
+                self.parent.text_console_logger(f"{text}\r")
+            return_code = popen.wait()
+            if return_code != 0:
+                raise Exception(popen.returncode, popen.stderr.read())
+        except Exception:
+            return f"Failed to erase PCB flash on {port}."
+        return None
+
+    def FlashUnitEspTool(self, port: str, firmware_version: str):
+        "Flash the board connected to the given port with the given firmware: Args: port = name of COM port, firmware_version = name of folder that contains the firmware Returns: None if success, Error string if fails"
+        build_folder_path = pathlib.Path(__file__).parent / firmware_version
+        flash_args_list = self.read_assemble_flash_args(build_folder_path = build_folder_path, port = port)
+        if flash_args_list == None:
+            return "No flash arguments file found in build directory."
+        try:
+            # Run esptool with args esptool.main(flash_args_list), include explicit path to improve path search speed during execution
+            popen = subprocess.Popen(args=[str(sys.executable), str(ESPTOOL_PY_DIR), *flash_args_list], stdout = subprocess.PIPE, stderr = subprocess.PIPE, universal_newlines = True)
+            while popen.poll() is None:
+                text = popen.stdout.readline()
+                text = text[0:len(text) - 1]
+                self.parent.text_console_logger(f"{text}\r")
+            return_code = popen.wait()
+            if return_code != 0:
+                raise Exception(popen.returncode, popen.stderr.read())
+        except Exception:
+            return f"Failed to flash PCB on {port}."
+        return None
+
+    def OtOGenerateSerialRequest(self, peripherals_list: TestPeripherals, existingSerial: str = None):
+        "Send HTTP request to oto-generate-unit function, optionally using given unit name, sets UID = "" and activated = 0 for the unit. Args: existingSerial (optional): given unit name if required. Returns: None if OK, otherwise error as String"
         if "OTO" in peripherals_list.DUTsprinkler.factoryLocation.upper():
             factory_location = "OTO_MFG"
         else:
@@ -1658,7 +1757,7 @@ class UnitInformation(TestStep):
         except requests.exceptions.ConnectionError as error:
             return f"Connection error to Firebase website {oto_generate_unit_url}"
         except Exception as error:
-            return f"Unknown HTTP Request Exception:\n{repr(error)}"
+            return f"Unknown HTTP Request Exception:\n{str(error)}"
         # Parse response body as a JSON
         try:
             responseJson = response.json()
@@ -1672,25 +1771,26 @@ class UnitInformation(TestStep):
             try:
                 newserial = str(responseJson["unitSerial"])
                 peripherals_list.DUTsprinkler.deviceID = newserial
-                if existingSerial is None:
-                    self.parent.text_console_logger(f"Are you sure this is a return? Generated a new unit name!!!: {peripherals_list.DUTsprinkler.deviceID}, writing to OtO...")
             except Exception as error:
                 return f"Unable to read JSON field in POST response:\n{repr(error)}"
-        else:
-            ErrorMessage = json.loads(response.content.decode())["error"]
-            if "Firebase found one unit with this MAC address but it does not match the device ID provided. Firebase: oto" in ErrorMessage:
-                newserial = ErrorMessage[102:112]
-                if newserial[0:3] != "oto" or not newserial[3:10].isnumeric() or len(newserial) != 10 or existingSerial != None:
-                    return ErrorMessage
+            try:
+                ErrorMessage = str(responseJson["message"])
+            except:
+                ErrorMessage = None
+
+            if existingSerial is None:
+                if ErrorMessage is None:
+                    self.parent.text_console_logger(f"Are you sure this is a return? Generated a new unit name!!!: {peripherals_list.DUTsprinkler.deviceID}, writing to OtO...")
                 else:
                     self.parent.text_console_logger(f"Updated unit name to match Firebase! {peripherals_list.DUTsprinkler.deviceID}, writing to OtO...")
-            else:
-                return ErrorMessage
+        else:
+            ErrorMessage = json.loads(response.content.decode())["error"]
+            return ErrorMessage
         if existingSerial is None:
             try:
                 peripherals_list.DUTMLB.set_device_id(newserial)
             except Exception as f:
-                return f"Unable to write unit name to OtO: {newserial}\n{repr(f)}"
+                return f"Unable to write unit name to OtO: {newserial}\n{str(f)}"
             try:
                 peripherals_list.DUTsprinkler.deviceID = peripherals_list.DUTMLB.get_device_id().string
             except Exception as f:
@@ -1699,8 +1799,74 @@ class UnitInformation(TestStep):
                 return f"Unit names don't match! OtO: {peripherals_list.DUTsprinkler.deviceID}, Cloud: {newserial}"
         else:
             self.parent.text_console_logger(f"Matched unit name with Firebase: {newserial}")            
+
+
         return None
-    
+
+    def read_assemble_flash_args(self, build_folder_path, port: str):
+        "Read flasher_args.json file and assemble args list for flashing using esptool.py"
+        # Get flash args from flash_project_args file
+        flash_args_json_file_path = (pathlib.Path(build_folder_path) / "flasher_args.json").resolve()
+        # Read json file
+        try:
+            with open(flash_args_json_file_path, "r") as f:
+                flasher_args_json = json.load(f)
+        except FileNotFoundError:
+            # If flasher_args.json not found quit with an error
+            return None
+        # Get bin paths
+        offset_path_list = []
+        flash_files_dict: Dict[str, str] = flasher_args_json["flash_files"]
+        for key, value in flash_files_dict.items():
+            offset = key
+            bin_file_path: pathlib.Path = (pathlib.Path(build_folder_path) / value).resolve()
+            assert bin_file_path.exists(), f"Binary file {bin_file_path} not found\n"
+            offset_path_list.append(offset)
+            offset_path_list.append(str(bin_file_path))
+        flash_args_list = ["--chip", "esp32", "--baud", "1843200", "--port", port, "--connect-attempts", "5", "write_flash", *flasher_args_json["write_flash_args"], *offset_path_list]
+        return flash_args_list
+
+    def RestoreOtOSettings(self, peripherals_list: TestPeripherals, Serial: str, BOM: str, v41: int, valve: int, nozzle: int):
+        "Writes settings to flash, returns: None if successful, error if not"
+        if Serial == None or BOM == None or v41 <= 0:
+            return "Missing values, cannot restore OtO"
+        
+        try:
+            peripherals_list.DUTMLB.set_device_id(device_id = Serial)
+            if Serial != peripherals_list.DUTMLB.get_device_id().string:
+                return f"Serial number not written correctly to board. {peripherals_list.DUTMLB.get_device_id().string}, supposed to be {Serial}"
+        except:
+            return f"Failed writing serial number to board {str(error)}"
+        try:
+            peripherals_list.DUTMLB.set_device_hardware_version(hardware_version = BOM)
+            if BOM != peripherals_list.DUTMLB.get_device_hardware_version().string:
+                return f"BOM not written correctly to board. {peripherals_list.DUTMLB.get_device_hardware_version().string}, supposed to be {BOM}"
+        except:
+            return f"Failed writing BOM to board {str(error)}"            
+
+        try:
+            peripherals_list.DUTMLB.set_calibration_voltages(v41)
+            if v41 != peripherals_list.DUTMLB.get_calibration_voltages().calib_4v1:
+                return f"Volage calibration not written correctly to board. {peripherals_list.DUTMLB.get_calibration_voltages().calib_4v1}, supposed to be {v41}"
+        except Exception as error:
+            return f"Failed writing calibration value to board {str(error)}"
+        
+        try:
+            peripherals_list.DUTMLB.set_valve_home_centidegrees(valve_home_centidegrees = valve)
+            if valve != peripherals_list.DUTMLB.get_valve_home_centidegrees().number:
+                return f"Valve home position not written correctly to board. {peripherals_list.DUTMLB.get_valve_home_centidegrees().number}, supposed to be {valve}"
+        except Exception as error:
+            return f"Failed writing valve home position to board {str(error)}"
+
+        try:
+            peripherals_list.DUTMLB.set_nozzle_home_centidegrees(nozzle_home_centidegrees = nozzle)
+            if nozzle != peripherals_list.DUTMLB.get_nozzle_home_centidegrees().number:
+                return f"Nozzle home position not written correctly to board. {peripherals_list.DUTMLB.get_nozzle_home_centidegrees().number}, supposed to be {nozzle}"
+        except Exception as error:
+            return f"Failed writing nozzle home position to board {str(error)}"
+        
+        return None
+
 class UnitInformationResult(TestResult):
     def __init__(self, test_status, step_start_time):
         super().__init__(test_status, step_start_time)
@@ -2050,3 +2216,153 @@ class ValveCalibration(TestStep):
 class ValveCalibrationResult(TestResult):
     def __init__(self, test_status: Union[str, None], step_start_time: float):
         super().__init__(test_status, step_start_time)
+
+
+def ADCtokPA(ADCValue):
+    "converts ADC pressure to kPa"
+    return round(((ADCValue - 1677721.6)/13421772.8)*globalvars.PressureSensor, 5)
+
+def ChangePyOtO(peripherals_list: TestPeripherals, version: int = 1):
+    if version == 1:
+        # first remove PyOtO 2 from the module path sys.path, if it exists
+        try:
+            sys.path.remove(os.path.dirname(__file__) + "\pyoto2\otoProtocol")
+        except:
+            pass
+        # add PyOtO to the module path sys.path
+        sys.path.insert(0, os.path.dirname(__file__) + "\pyoto\otoProtocol")
+        # remove duplicate entries from the module path sys.path
+        sys.path = list(dict.fromkeys(sys.path))
+        ClearModules()
+        import pyoto.otoProtocol.otoMessageDefs as otoMessageDefs
+        import pyoto.otoProtocol.otoCommands as pyoto
+        peripherals_list.CurrentPyOtO = 1
+    elif version == 2:
+        # first remove PyOtO from the module path sys.path, if it exists
+        try:
+            sys.path.remove(os.path.dirname(__file__) + "\pyoto\otoProtocol")
+        except:
+            pass
+        # add PyOtO2 to the module path sys.path
+        sys.path.insert(0, os.path.dirname(__file__) + "\pyoto2\otoProtocol")
+        # remove duplicate entries from the module path sys.path
+        sys.path = list(dict.fromkeys(sys.path))
+        ClearModules()   
+        import pyoto2.otoProtocol.otoMessageDefs as otoMessageDefs
+        import pyoto2.otoProtocol.otoCommands as pyoto
+        peripherals_list.CurrentPyOtO = 2
+    return None
+
+def CheckReturnHistory(database:firestore_v1.Client, targetDeviceID: str = None):
+
+    FITQuery = database.collection("fitHistory").where(filter=firestore_v1.FieldFilter(field_path = "associatedDevice", op_string = "==", value = targetDeviceID)) # "oto7330887" has FIT, "oto9875030" has FIT-305
+    FITQueryResults = FITQuery.get() # list of DocSnapshots
+
+    for value in FITQueryResults:
+        try:
+            FITNumber = value.get("FIT")
+        except:
+            FITNumber = None
+        if FITNumber != "FIT-305":
+            return "This unit cannot be refurbished, it has been returned under the FIT system"
+
+    ReturnQuery = database.collection("returnHistory").where(filter=firestore_v1.FieldFilter(field_path = "associatedDevice", op_string = "==", value = targetDeviceID))
+    ReturnQueryResults = ReturnQuery.get() # i believe this will be a list of DocSnapshots
+
+    SubmitDate = []
+    for value in ReturnQueryResults:
+        try:
+            SubmitDate.append([value.get("submitDate")])
+        except:  # no submitDate in record
+            pass
+    
+    entryNumber = len(SubmitDate)
+
+    if entryNumber == 0:
+        WriteReturnHistory(targetDeviceID = targetDeviceID, database = database)
+        # print(f"This is going through for the first time. A generic return entry has been made for it, please proceed.")
+        return None
+    elif entryNumber == 1:
+        if 'rmaDetails' in ReturnQueryResults[0].to_dict(): #this means a unit is not allowed to go back through the flash utility again otherwise this will happen
+            WriteReturnHistory(targetDeviceID = targetDeviceID, database = database)
+            return "This unit has been returned for the 2nd time but it was missing a return entry. A generic return entry has been added and this unit should be set aside"
+        else:
+            # rmaDetails does not exist in the returnHistoryDoc which means it has not gone through the KK line on this first return yet
+            # print(f'This unit is going through for the first time and an entry was made by the agent, please proceed')
+            return None
+    else:
+        # We are limiting returns to 2. This should be 7% x 7%. We will hold onto these units for beta / field tests
+        return "This unit has been returned too many times, do not proceed to refurbish this unit"
+    
+def ClearModules():
+    "removes PyOtO modules from memory to allow switching between PyOtO versions"
+    ModuleList = ["otoPacket", "otoMessageDefs", "otoCommands", "otoUart", "otoBle"]
+    for ModuleName in ModuleList:
+        try:
+            del sys.modules[ModuleName]
+        except:
+            pass
+
+def RelativekPA(ADCValue):
+    "relative conversion ADC to kPa"
+    return round((ADCValue/13421772.8)*globalvars.PressureSensor, 5)
+
+def retrieveFirestore() -> firestore_v1.Client:
+    "Start firebase app and return a firestore client. Environment must be authenticated (in Google Cloud or have GOOGLE_APPLICATION_CREDENTIALS environment variable point to service account credentials json."
+
+    CREDENTIALS_ENV_VAR = "GOOGLE_APPLICATION_CREDENTIALS"
+
+    try:
+        os.environ[CREDENTIALS_ENV_VAR]
+    except KeyError:
+        # print(f"{CREDENTIALS_ENV_VAR} environment variable not found, logging in with google authenticated environment.")
+        pass
+
+    if not len(firebase_admin._apps):
+        firebase_admin.initialize_app()
+    else:
+        firebase_admin.get_app()
+
+    database = firestore.client()
+    # print("Firestore Login Success")
+    return database
+
+def WriteReturnHistory(targetDeviceID: str, database: firestore_v1.Client):
+    try:
+        batchJob = database.batch()
+
+        # set returnHistory
+        newReturnDocRef = database.collection("returnHistory").document()
+        unitDocRef = database.collection("Units").document(targetDeviceID)
+        unitDoc = unitDocRef.get().to_dict()
+        #check if returnHistoryID field in unit document needs to be transformed, ignore if it doesn't exist
+        if 'returnHistoryID' in unitDoc:
+            returnHistoryID = unitDoc.get('returnHistoryID')
+
+            if isinstance(returnHistoryID, str):
+                unitDocRef.update({'returnHistoryID': [returnHistoryID]})
+
+        newReturnJson = {
+            "associatedUID": "",
+            "associatedDevice": targetDeviceID,
+            "description": "Generic return",
+            "reason": "Unknown",
+            "zendeskTicket": "",
+            "ticketEmail": "",
+            "submitDate": datetime.now(timezone.utc)
+        }
+
+        # update units document
+        unitDocJson = {
+            "rmaAction": "Return",
+            "returnHistoryID": firestore_v1.ArrayUnion([newReturnDocRef.id])
+        }
+
+        batchJob.update(unitDocRef,unitDocJson)
+        batchJob.set(newReturnDocRef, newReturnJson)
+        batchJob.commit()
+        return None
+
+    except Exception as e:
+        print(f"Error in writing return history: {str(e)}")
+        raise Exception

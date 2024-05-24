@@ -7,12 +7,15 @@ class otoSprinkler:
     to describe a unique instance of this device.
     '''
     def __init__(self):
-        self.deviceID: str = ""  # OtO serial number, format "oto1234567"
         self.macAddress: str = ""  # MAC address of the wifi of the ESP32
-        self.UID: str = ""  # UID of unit
-        self.SSID: str = ""  # SSID of wifi
+        self.deviceID: str = ""  # OtO serial number, format "oto1234567"
         self.bomNumber: str = ""  # BOM number of OtO design, set manually at flash time, examples: 6014-G, 6014-F1
         self.Firmware: str = ""  # firmware revision of OtO board
+        self.v41calibration: int = 0  # voltage calibration value
+        
+        self.UID: str = ""  # UID of unit
+        self.SSID: str = ""  # SSID of wifi
+
         self.batchNumber = str(time.strftime("%y", time.localtime())[1] + time.strftime("%j", time.localtime()))  # format is YDDD, where Y is last digit of the year, and DDD is the day of the year of the current day
 
         self.batteryVoltage: float = 0
@@ -77,7 +80,6 @@ class otoSprinkler:
         self.Pump3CurrentSTD: float = 0
         self.passEOL: bool = False
         self.passTime: float = 0
-        self.bringUpComment = ""
         self.ZeroPressure: list = []
         self.ZeroPressure_Temp: list = []
         self.errorStepName: str = ""  # this is the name of the test result where we failed.

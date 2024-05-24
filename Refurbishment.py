@@ -14,6 +14,7 @@ import matplotlib
 import globalvars  # anyvariable/funtion you want globally available goes here
 import serial
 import pyoto.otoProtocol.otoCommands as pyoto
+from git import Repo
 matplotlib.use("Agg")  # needed to prevent multi-thread failures when using matplotlib
 from matplotlib import pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
@@ -28,7 +29,7 @@ class LogFileLocationError(Exception):
     pass
 
 class MainWindow(tk.Tk):
-    ProgramVersion = "v0.9α"
+    ProgramVersion = ""
     BAD_COLOUR = "#ff6464"
     GOOD_COLOUR = "#10aa10"
     IN_PROCESS_COLOUR = "YELLOW"
@@ -50,6 +51,12 @@ class MainWindow(tk.Tk):
         sns.set_theme(font = self.FONTFAMILY, font_scale = 1.7 * self.SCALEFACTOR)  # sets the default seaborn chart colours and fonts
         coolcolour = "#daf8e3"
 
+        self.ProgramVersion = GetVersions()
+
+        # if "-dirty" in self.ProgramVersion:
+        #     tk.messagebox.showerror(title = "MODIFIED FILES!", message = "Program files have been modified, please restore the Refurbishment repository from GitHub")
+        #     exit()
+            
         self.device_list = TestPeripherals(parent = self)
         self.test_suite = TestSuite(name = f"OtO UNIT REFURBISHMENT {self.ProgramVersion}",
                             test_list=[
@@ -77,8 +84,8 @@ class MainWindow(tk.Tk):
         # Fixed Window Elements
         self.status_font = font.Font(family = self.FONTFAMILY, size = int(28 * self.SCALEFACTOR), weight = "normal")
         self.smaller_font = font.Font(family = self.FONTFAMILY, size = int(26 * self.SCALEFACTOR), weight = "normal")
-        style = ttk.Style(self)
-        style.configure('TCheckbutton', font = self.status_font, background = coolcolour)
+        # style = ttk.Style(self)
+        # style.configure('TCheckbutton', font = self.status_font, background = coolcolour)
         self.winfo_toplevel().title(self.test_suite.name)
 
         self.LeftFrame = tk.Frame(self, width = int(1200 * self.SCALEFACTOR), height = int(2100 * self.SCALEFACTOR), relief = "sunken", border = int(5 * self.SCALEFACTOR), background = coolcolour)
@@ -100,8 +107,8 @@ class MainWindow(tk.Tk):
         self.text_battery = tk.Label(self.LeftFrame, width = TextWidth, font = self.smaller_font, height = 1, padx = int(5 * self.SCALEFACTOR), pady = int(5 * self.SCALEFACTOR), borderwidth = int(5 * self.SCALEFACTOR), relief = "raised", anchor = "w")
         self.labelMAC = tk.Label(self.LeftFrame, text = "MAC:", font = self.smaller_font, padx = int(5 * self.SCALEFACTOR), background = coolcolour)
         self.textMAC = tk.Label(self.LeftFrame, width = TextWidth, font = self.smaller_font, height = 1, padx = int(5 * self.SCALEFACTOR), pady = int(5 * self.SCALEFACTOR), borderwidth = int(5 * self.SCALEFACTOR), relief = "raised", anchor = "w")
-        self.CleanOnlyCheckBox = ttk.Checkbutton(self.LeftFrame, text = " CLEANED ONLY", command = self.CleanedOnlyChecked, variable = self.CleanOnly)
-        self.ReplacePartsCheckBox = ttk.Checkbutton(self.LeftFrame, text = " REPLACE PARTS", command = self.ReplacePartsChecked, variable = self.ReplaceParts)
+        # self.CleanOnlyCheckBox = ttk.Checkbutton(self.LeftFrame, text = " CLEANED ONLY", command = self.CleanedOnlyChecked, variable = self.CleanOnly)
+        # self.ReplacePartsCheckBox = ttk.Checkbutton(self.LeftFrame, text = " REPLACE PARTS", command = self.ReplacePartsChecked, variable = self.ReplaceParts)
 
         # Program Variables
         self.abort_test_bool: bool = False
@@ -134,8 +141,8 @@ class MainWindow(tk.Tk):
         self.textMAC.grid(row = 8, column = 1, sticky = "W", padx = int(5 * self.SCALEFACTOR), pady = int(5 * self.SCALEFACTOR))
         self.one_button_to_rule_them_all.grid(row = 0, rowspan = 2, column = 0, columnspan = 2, padx = int(5 * self.SCALEFACTOR), pady = int(5 * self.SCALEFACTOR))
         self.turn_valve_button.grid(row = 13, column = 0, columnspan = 2, padx = int(5 * self.SCALEFACTOR), pady = int(5 * self.SCALEFACTOR))
-        self.CleanOnlyCheckBox.grid(row = 2, column = 0, columnspan = 2)
-        self.ReplacePartsCheckBox.grid(row = 3, column = 0, columnspan = 2)
+        # self.CleanOnlyCheckBox.grid(row = 2, column = 0, columnspan = 2)
+        # self.ReplacePartsCheckBox.grid(row = 3, column = 0, columnspan = 2)
 
         # Button Setup
         ColumnCount = 14  # number of items per column
@@ -237,16 +244,17 @@ class MainWindow(tk.Tk):
             self.one_button_to_rule_them_all.configure(text = "STOP", bg = self.IN_PROCESS_COLOUR, fg = "BLACK", command = self.abort_test, state = "normal") 
             self.one_button_to_rule_them_all.update()
 
-        # Step 1: Reinitialize Program Variables, make sure clean or replace toggle is set
+        # Step 1: Reinitialize Program Variables
         self.abort_test_bool: bool = False
         self.test_result_list: List[TestResult] = []
         self.test_start_time: float = 0.0
-        if self.CleanOnly.get() == 0 and self.ReplaceParts.get() == 0:
-            self.text_console.configure(bg = self.IN_PROCESS_COLOUR)
-            self.one_button_to_rule_them_all.configure(text = "START", bg = self.GOOD_COLOUR, fg = self.NORMAL_COLOUR, command = self.execute_tests, state = "normal")
-            self.turn_valve_button.configure(state = "normal")
-            self.text_console_logger("Please select one of the CLEAN ONLY or REPLACE PARTS check boxes")
-            return None
+        # Make sure clean or replace toggle is set
+        # if self.CleanOnly.get() == 0 and self.ReplaceParts.get() == 0:
+        #     self.text_console.configure(bg = self.IN_PROCESS_COLOUR)
+        #     self.one_button_to_rule_them_all.configure(text = "START", bg = self.GOOD_COLOUR, fg = self.NORMAL_COLOUR, command = self.execute_tests, state = "normal")
+        #     self.turn_valve_button.configure(state = "normal")
+        #     self.text_console_logger("Please select one of the CLEAN ONLY or REPLACE PARTS check boxes")
+        #     return None
 
         # Step 2: Clean up window view, check for more than 1 USB board attached, start timer
         self.reset_status_color()
@@ -274,6 +282,10 @@ class MainWindow(tk.Tk):
                 if not self.test_result_list[index].is_passed:
                     self.test_suite.test_devices.DUTsprinkler.passEOL = False
                     self.test_step_failure_handler(step_number = index)
+                    if index == 0:  # stop testing if the information step fails
+                        break
+                    elif index == 1 and "calibrate" in self.test_result_list[index].test_status:  # stop testing if EOL board is not current calibrated
+                        break
                 else:
                     self.status_labels[index].configure(bg = self.GOOD_COLOUR)
                     self.status_labels[index].update()
@@ -313,6 +325,9 @@ class MainWindow(tk.Tk):
             self.one_button_to_rule_them_all.configure(text = "START", bg = self.GOOD_COLOUR, fg = self.NORMAL_COLOUR, command = self.execute_tests, state = "normal")
             self.turn_valve_button.configure(state = "normal")
 
+        # reset the check boxes so that each unit must be forced to choose a rework type
+        self.ReplaceParts.set(0)
+        self.CleanOnly.set(0)        
         return ClosePort(self.device_list)
 
     def initialize_devices(self):
@@ -570,7 +585,7 @@ class MainWindow(tk.Tk):
             self.one_button_to_rule_them_all.configure(state = "normal")
             self.turn_valve_button.configure(state = "normal")               
             return ClosePort(self.device_list)
-        if FunctionName in "Test Pump 1 Test Pump 2 Test Pump 3":
+        if FunctionName in "Pump 1 Pump 2 Pump 3":
             ResultList = self.test_suite.test_list[ButtonNumber].run_step(peripherals_list=self.test_suite.test_devices)
             if not ResultList.is_passed:
                 self.status_labels[ButtonNumber].configure(bg = self.BAD_COLOUR, state = "normal")
@@ -637,7 +652,7 @@ class MainWindow(tk.Tk):
                 self.turn_valve_button.configure(state = "normal")                           
                 if ResultList.test_status != None:
                     self.text_console_logger(display_message = ResultList.test_status[1:])
-        elif FunctionName in "Solar Confirm Valve Position":  # must turn air on and off to run these commands
+        elif FunctionName in "Solar Confirm Valve Position":
             ResultList = self.test_suite.test_list[ButtonNumber].run_step(peripherals_list=self.test_suite.test_devices)  # Run selected test
             if not ResultList.is_passed:
                 self.status_labels[ButtonNumber].configure(bg = self.BAD_COLOUR, state = "normal")
@@ -675,6 +690,10 @@ class MainWindow(tk.Tk):
                     self.text_console_logger(display_message = ResultList.test_status[1:])
                 self.one_button_to_rule_them_all.configure(state = "normal")
                 self.turn_valve_button.configure(state = "normal")                           
+
+        # reset check boxes to ensure each unit is correctly identified for refurbishment type
+        self.ReplaceParts.set(0)
+        self.CleanOnly.set(0)   
         return ClosePort(self.device_list)
     
     def reset_status_color(self):
@@ -795,6 +814,58 @@ class MainWindow(tk.Tk):
                 raise VacError("TEST CONTROLLER WASN'T FOUND. Is it plugged in?")
         if self.test_suite.test_devices.gpioSuite.vacSwitchPin1.get() == 0 or self.test_suite.test_devices.gpioSuite.vacSwitchPin2.get() == 0 or self.test_suite.test_devices.gpioSuite.vacSwitchPin3.get() == 0:
             raise VacError("Unscrew and then retighten the black, blue and orange caps before testing again.")
+
+def GetVersions(path: str = None):
+    "Get Github versions to check for local changes"
+    # Get refurbishment version
+    path = os.path.dirname(__file__)
+    repo = Repo(path)
+    # Get Current Tag if it exists
+    Version = next((tag for tag in repo.tags if tag.commit == repo.head.commit), None)
+    # Otherwise get current short hash
+    if Version is None or not repo.head.is_detached:
+        Version = repo.head.commit.hexsha[:7]
+    Version = str(Version)
+    if repo.is_dirty():
+        Version += "-dirty"
+
+    Version += ", ESPTool: "
+    # Get esptool version
+    path = os.path.join(os.path.dirname(__file__), "esptool")
+    repo = Repo(path)
+    ESPtoolVersion = next((tag for tag in repo.tags if tag.commit == repo.head.commit), None)
+    if ESPtoolVersion is None or not repo.head.is_detached:
+        ESPtoolVersion = repo.head.commit.hexsha[:7]    
+    ESPtoolVersion = str(ESPtoolVersion)
+    if repo.is_dirty():
+        ESPtoolVersion += "-dirty"
+    Version += ESPtoolVersion
+
+    Version += ", PyOTO: "
+    # Get esptool version
+    path = os.path.join(os.path.dirname(__file__), "pyoto")
+    repo = Repo(path)
+    PyOtOVersion = next((tag for tag in repo.tags if tag.commit == repo.head.commit), None)
+    if PyOtOVersion is None or not repo.head.is_detached:
+        PyOtOVersion = repo.head.commit.hexsha[:7]    
+    PyOtOVersion = str(PyOtOVersion)
+    if repo.is_dirty():
+        PyOtOVersion += "-dirty"
+    Version += PyOtOVersion
+
+    Version += ", PyOTO2: "
+    # Get esptool version
+    path = os.path.join(os.path.dirname(__file__), "pyoto2")
+    repo = Repo(path)
+    PyOtOVersion = next((tag for tag in repo.tags if tag.commit == repo.head.commit), None)
+    if PyOtOVersion is None or not repo.head.is_detached:
+        PyOtOVersion = repo.head.commit.hexsha[:7]    
+    PyOtOVersion = str(PyOtOVersion)
+    if repo.is_dirty():
+        PyOtOVersion += "-dirty"
+    Version += PyOtOVersion
+
+    return Version
 
 def ClearFigures():
     "clears all graphs and the memory associated with them"
