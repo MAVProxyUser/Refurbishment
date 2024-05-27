@@ -2280,9 +2280,9 @@ def CloudDeactivateUnit(targetDeviceID: str, database: firestore_v1.Client):
         # update units document
         unitDocJson = {
             "activated": 0,
-            "associatedUID": ""
+            "associatedUID": "",
+            "warrantyStartDate": firestore.DELETE_FIELD
         }
-
         batchJob.update(reference = unitDocRef, field_updates = unitDocJson)
         batchJob.commit()
         return None
