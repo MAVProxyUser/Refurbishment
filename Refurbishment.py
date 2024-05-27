@@ -473,7 +473,7 @@ class MainWindow(tk.Tk):
                     elif isinstance(entry, PrintBoxLabelResult):
                         default_row["Print Time"] = entry.cycle_time
                         default_row["Printed"] = self.test_suite.test_devices.DUTsprinkler.Printed
-                        default_row["CloudSave"] = self.test_suite.test_devices.DUTsprinkler.CloudSave
+                        default_row["Cloud Save"] = self.test_suite.test_devices.DUTsprinkler.CloudSave
                     else:
                         print (type(entry))
                         raise TypeError(f'Program error, unknown test specified: {entry}')
