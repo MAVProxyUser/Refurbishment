@@ -1013,7 +1013,7 @@ class PrintDeviceLabel(TestStep):
             return PrintDeviceLabelResult(test_status = f"OtO has invalid BOM, can't print: {CurrentBOM}", step_start_time = startTime)
         printfile = "ZD 2024 Lid Label MAC.prn"
         try:
-            with open(file = str(pathlib.Path(__file__).parent / "Label Printing"/ printfile), encoding = "utf-8", errors = "ignore") as default_label:
+            with open(file = str(pathlib.Path(__file__).parent / "Labels"/ printfile), encoding = "utf-8", errors = "ignore") as default_label:
                 # Grab ZPL Text
                 zpl_text = default_label.read() # expected to be a byte string at the very end?
                 # Find All Fields and Replace
@@ -1034,10 +1034,9 @@ class PrintDeviceLabel(TestStep):
                     zebra_printer.output(commands = zpl_text, encoding = "utf-8")
                     peripherals_list.DUTsprinkler.Printed = True
                 elif ('ZDesigner ZD420-300dpi ZPL' in zebra_printer.getqueues()):
-                    for print in range(self.number_of_prints):
-                        zebra_printer.setqueue("ZDesigner ZD420-300dpi ZPL")
-                        zebra_printer.output(commands = zpl_text, encoding = "utf-8")
-                        peripherals_list.DUTsprinkler.Printed = True
+                    zebra_printer.setqueue("ZDesigner ZD420-300dpi ZPL")
+                    zebra_printer.output(commands = zpl_text, encoding = "utf-8")
+                    peripherals_list.DUTsprinkler.Printed = True
                 else:
                     return PrintDeviceLabelResult(test_status = self.ERRORS.get("No Printer"), step_start_time = startTime)
         except IOError or FileNotFoundError:
