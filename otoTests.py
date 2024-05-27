@@ -1513,7 +1513,7 @@ class UnitInformation(TestStep):
         existingSerial = peripherals_list.DUTsprinkler.deviceID
         existingBOM = peripherals_list.DUTsprinkler.bomNumber
         existingUID = peripherals_list.DUTsprinkler.UID
-        if existingBOM == "None":
+        if existingBOM == "":
             return UnitInformationResult(test_status = self.ERRORS.get("Blank BOM"), step_start_time = startTime)            
 
         ReturnMessage = self.OtOGenerateSerialRequest(peripherals_list = peripherals_list, existingSerial = existingSerial)
@@ -1545,7 +1545,7 @@ class UnitInformation(TestStep):
             # invalid BOM, error and quit
             return UnitInformationResult(test_status = f"Unknown BOM: {peripherals_list.DUTsprinkler.bomNumber}", step_start_time = startTime)
         
-        if peripherals_list.DUTsprinkler.Firmware != FlashContents:
+        if peripherals_list.DUTsprinkler.Firmware != FlashContents or existingUID != None:
             # grab existing serial, BOM, v41adc, valve and nozzle offsets
             # erase board
             # flash board with FlashContents firmware
