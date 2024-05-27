@@ -993,7 +993,7 @@ class PrintBoxLabelResult(TestResult):
         super().__init__(test_status, step_start_time)
 
 class PrintDeviceLabel(TestStep):
-    ERRORS: Dict[str,str] = {"No Printer": 'Unable to locate printer "ZDesigner ZD421-300dpi DEVICE ZPL"',
+    ERRORS: Dict[str,str] = {"No Printer": 'Unable to locate printer "ZDesigner ZD421-300dpi ZPL", "ZDesigner ZD420-300dpi ZPL',
                              "No File": "Unable to locate label file."
                              }
     def __init__(self, name: str , parent: tk):
@@ -1026,9 +1026,9 @@ class PrintDeviceLabel(TestStep):
                     zebra_printer.setqueue("ZDesigner ZD421-300dpi DEVICE ZPL")
                     zebra_printer.output(commands = zpl_text, encoding = "utf-8")
                     peripherals_list.DUTsprinkler.Printed = True
-                elif ('ZDesigner ZD421CN-300dpi ZPL' in zebra_printer.getqueues()):
+                elif ('ZDesigner ZD420-300dpi ZPL' in zebra_printer.getqueues()):
                     for print in range(self.number_of_prints):
-                        zebra_printer.setqueue("ZDesigner ZD421CN-300dpi ZPL")
+                        zebra_printer.setqueue("ZDesigner ZD420-300dpi ZPL")
                         zebra_printer.output(commands = zpl_text, encoding = "utf-8")
                         peripherals_list.DUTsprinkler.Printed = True
                 else:
