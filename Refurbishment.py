@@ -505,7 +505,36 @@ class MainWindow(tk.Tk):
             self.one_button_to_rule_them_all.configure(state = "normal")
             self.turn_valve_button.configure(state = "normal")
             return None
-        elif FunctionName in "Pressure Sensor Nozzle Home Nozzle Rotation Print Labels":  # these functions don't need control board
+        elif FunctionName in "Print Labels":
+            try:
+                self.test_suite.test_devices.add_device(new_object = otoSprinkler())
+            except Exception as e:
+                self.text_console.configure(bg = self.IN_PROCESS_COLOUR)
+                if str(e) == "Ping Failed":
+                    self.text_console_logger("No OtO found. Check that the grey ribbon cable is plugged into OtO.")
+                elif str(e) == "No Otos found on Serial Port":
+                    self.text_console_logger("No serial card found. Check that the USB communication serial card is plugged in.")
+                else:
+                    self.text_console_logger(display_message = str(e))
+                self.status_labels[ButtonNumber].configure(bg = self.BAD_COLOUR, state = "normal")
+                self.one_button_to_rule_them_all.configure(state = "normal")
+                self.turn_valve_button.configure(state = "normal") 
+            ResultList = PrintDeviceLabel(name = "PrintDeviceLabel", parent = self).run_step(peripherals_list = self.test_suite.test_devices)
+            if not ResultList.is_passed:
+                self.status_labels[ButtonNumber].configure(bg = self.BAD_COLOUR, state = "normal")
+                self.status_labels[ButtonNumber].update()
+                self.text_console.configure(bg = self.BAD_COLOUR)
+                self.text_console_logger(display_message = ResultList.test_status)
+                self.one_button_to_rule_them_all.configure(state = "normal")
+                self.turn_valve_button.configure(state = "normal")
+            else:
+                self.status_labels[ButtonNumber].configure(bg = self.GOOD_COLOUR, state = "normal")
+                self.status_labels[ButtonNumber].update()
+                if ResultList.test_status != None:
+                    self.text_console_logger(display_message = ResultList.test_status[1:])
+                self.one_button_to_rule_them_all.configure(state = "normal")
+                self.turn_valve_button.configure(state = "normal")
+        elif FunctionName in "Pressure Sensor Nozzle Home Nozzle Rotation":  # these functions don't need control board
             try:
                 self.test_suite.test_devices.add_device(new_object = otoSprinkler())
             except Exception as e:
