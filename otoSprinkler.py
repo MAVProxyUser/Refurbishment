@@ -15,6 +15,7 @@ class otoSprinkler:
         
         self.UID: str = ""  # UID of unit
         self.SSID: str = ""  # SSID of wifi
+        self.returnID: str = ""  # ID of the latest return record
 
         self.batchNumber = str(time.strftime("%y", time.localtime())[1] + time.strftime("%j", time.localtime()))  # format is YDDD, where Y is last digit of the year, and DDD is the day of the year of the current day
 

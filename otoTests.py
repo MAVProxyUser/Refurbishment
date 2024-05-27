@@ -965,6 +965,10 @@ class PrintBoxLabel(TestStep):
         if self.parent.FinalCheck.get() == 1:
             if peripherals_list.DUTsprinkler.passEOL == False:
                 return PrintBoxLabelResult(test_status = "Device failed, can't print box label", step_start_time = startTime)
+            self.parent.text_console_logger("Saving unit information to the cloud...")
+            cloudLogResult = CloudSaveUnitAttributes(name = "CloudSaveUnit", parent = self.parent).run_step(peripherals_list = peripherals_list)
+            if cloudLogResult.is_passed is not True:
+                return PrintBoxLabelResult(test_status = cloudLogResult.test_status, step_start_time = startTime)
             try:
                 with open(file=str(pathlib.Path(__file__).parent / "Labels" / "OtO Refurbish Box UPC 2024.prn"), encoding = "utf-8", errors = "ignore") as default_label:
                     # # Grab ZPL Text
@@ -976,7 +980,10 @@ class PrintBoxLabel(TestStep):
                     if ("ZDesigner ZD421-300dpi ZPL BOX" in zebra_printer.getqueues()):
                         zebra_printer.setqueue("ZDesigner ZD421-300dpi ZPL BOX")
                         zebra_printer.output(commands = zpl_text, encoding='utf-8')
-                        peripherals_list.DUTsprinkler.Printed = True                        
+                        peripherals_list.DUTsprinkler.Printed = True
+                        RefurbishResult = SetRefurbishedTrue(database = peripherals_list.OtOdatabase, ReturnHistoryID = peripherals_list.DUTsprinkler.returnID)
+                        if RefurbishResult != None:
+                            return PrintBoxLabelResult(test_status = "Unable to save refurbished status to the cloud, please run again!", step_start_time = startTime)                            
                     else:
                         return PrintBoxLabelResult(test_status = self.ERRORS.get("No Printer"), step_start_time = startTime)
             except IOError or FileNotFoundError:
@@ -1505,6 +1512,7 @@ class UnitInformation(TestStep):
 
         existingSerial = peripherals_list.DUTsprinkler.deviceID
         existingBOM = peripherals_list.DUTsprinkler.bomNumber
+        existingUID = peripherals_list.DUTsprinkler.UID
         if existingBOM == "None":
             return UnitInformationResult(test_status = self.ERRORS.get("Blank BOM"), step_start_time = startTime)            
 
@@ -1515,7 +1523,7 @@ class UnitInformation(TestStep):
         if len(existingSerial) != 0: #blank units will have "" as the default value
             if existingSerial[0:3] == "oto" and len(existingSerial) == 10 and existingSerial[3:10].isnumeric():  # is the Device ID valid?
                 EstablishLoggingLocation(name = None, folder_name = None, csv_file_name = None, parent = self.parent).run_step(peripherals_list = peripherals_list)
-                CheckResult = CheckReturnHistory(targetDeviceID = peripherals_list.DUTsprinkler.deviceID, database = peripherals_list.OtOdatabase)
+                CheckResult = CheckReturnHistory(peripherals_list = peripherals_list, targetDeviceID = existingSerial, database = peripherals_list.OtOdatabase, targetUID = existingUID)
                 if CheckResult != None:
                     return UnitInformationResult(test_status = CheckResult, step_start_time = startTime)
             else: # Invalid unit name
@@ -2163,11 +2171,20 @@ def ChangePyOtO(peripherals_list: TestPeripherals, version: int = 1):
         peripherals_list.CurrentPyOtO = 2
     return None
 
-def CheckReturnHistory(database:firestore_v1.Client, targetDeviceID: str = None):
+def CheckReturnHistory(peripherals_list: TestPeripherals, database:firestore_v1.Client, targetUID: str = None, targetDeviceID: str = None):
 
     MAXRETURNS = 1
 
-    DeactivateResult = CloudDeactivateUnit(targetDeviceID = targetDeviceID, database = database)
+    if targetUID != None and targetDeviceID != None:  # remove OtO from customer account
+        # set unit table to activated, or delete will fail.
+        ActivateMessage = CloudActivateUnit(targetDeviceID = targetDeviceID, database = database)
+        if ActivateMessage != None:
+            return ActivateMessage
+        RemoveOtOLink = r"https://oto-cloud-service-ems-prod-ugegz6xfpa-uc.a.run.app/account/" + targetUID + r"/device/" + targetDeviceID
+        DeleteMessage = requests.delete(url = RemoveOtOLink)
+
+
+    DeactivateResult = CloudDeactivateUnit(targetDeviceID = targetDeviceID, database = database)  # set activated to 0 in the unit table for this unit
     if DeactivateResult != None:
         return DeactivateResult
 
@@ -2193,6 +2210,8 @@ def CheckReturnHistory(database:firestore_v1.Client, targetDeviceID: str = None)
             RefurbValue = value.get("Refurbished")
             if RefurbValue == True:
                 RefurbedCount += 1
+            else:
+                peripherals_list.DUTsprinkler.returnID = value.id
         except:  # Refurbished field doesn't exist, add field and set to False
             if DataUpdates == 0:
                 BatchJob = database.batch()
@@ -2200,14 +2219,15 @@ def CheckReturnHistory(database:firestore_v1.Client, targetDeviceID: str = None)
             UpdateJson = {"Refurbished": False}
             BatchJob.update(reference = ReturnDocRef, field_updates = UpdateJson)
             DataUpdates += 1
+            peripherals_list.DUTsprinkler.returnID = value.id
     if DataUpdates > 0:
         BatchJob.commit()
 
     if ReturnCount == 0:  # this unit hasn't been returned before, write a record to returnHistory and allow refurbishment
-        WriteResult = WriteReturnHistory(targetDeviceID = targetDeviceID, database = database)
+        WriteResult = WriteReturnHistory(peripherals_list = peripherals_list, targetDeviceID = targetDeviceID, database = database)
         return WriteResult
     elif ReturnCount == RefurbedCount:  # this unit has been returned AND refurbished already ReturnCount, RefurbedCount times
-        WriteResult = WriteReturnHistory(targetDeviceID = targetDeviceID, database = database)  # write another returnHistory record for THIS return to track it.
+        WriteResult = WriteReturnHistory(peripherals_list = peripherals_list, targetDeviceID = targetDeviceID, database = database)  # write another returnHistory record for THIS return to track it.
         if WriteResult != None:
             return WriteResult
         if ReturnCount + 1 > MAXRETURNS:
@@ -2235,6 +2255,24 @@ def ClearModules():
             del sys.modules[ModuleName]
         except:
             pass
+
+def CloudActivateUnit(targetDeviceID: str, database: firestore_v1.Client):
+    try:
+        batchJob = database.batch()
+        unitDocRef = database.collection("Units").document(targetDeviceID)
+        # update units document
+        unitDocJson = {
+            "activated": 1
+        }
+
+        batchJob.update(reference = unitDocRef, field_updates = unitDocJson)
+        batchJob.commit()
+        return None
+    except Exception as e:
+        if e.code == 404:
+            return f"Unit not found in Firebase: {targetDeviceID}"
+        else:
+            return f"Error updating unit cloud information: {str(e)}"
 
 def CloudDeactivateUnit(targetDeviceID: str, database: firestore_v1.Client):
     try:
@@ -2279,7 +2317,26 @@ def retrieveFirestore() -> firestore_v1.Client:
     # print("Firestore Login Success")
     return database
 
-def WriteReturnHistory(targetDeviceID: str, database: firestore_v1.Client):
+def SetRefurbishedTrue(database: firestore_v1.client, ReturnHistoryID: str):
+    "sets Refurbished = True in the returnHistory collection"
+    try:
+        batchJob = database.batch()
+        ReturnDocRef = database.collection("returnHistory").document(ReturnHistoryID)
+        # update units document
+        NewReturnJson = {
+            "Refurbished": True
+        }
+
+        batchJob.update(reference = ReturnDocRef, field_updates = NewReturnJson)
+        batchJob.commit()
+        return None
+    except Exception as e:
+        if e.code == 404:
+            return f"Returned unit history not found in Firebase: {ReturnHistoryID}"
+        else:
+            return f"Error updating returned unit cloud information: {str(e)}"
+
+def WriteReturnHistory(peripherals_list: TestPeripherals, targetDeviceID: str, database: firestore_v1.Client):
     try:
         batchJob = database.batch()
 
@@ -2313,6 +2370,7 @@ def WriteReturnHistory(targetDeviceID: str, database: firestore_v1.Client):
         batchJob.update(reference = unitDocRef, field_updates = unitDocJson)
         batchJob.set(reference = newReturnDocRef, document_data = newReturnJson)
         batchJob.commit()
+        peripherals_list.DUTsprinkler.returnID = newReturnDocRef.id
         return None
 
     except Exception as e:

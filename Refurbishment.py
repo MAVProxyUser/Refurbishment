@@ -284,10 +284,6 @@ class MainWindow(tk.Tk):
                 self.test_suite.test_devices.DUTsprinkler.passTime = round((timeit.default_timer() - self.test_start_time), 4)
                 self.log_unit_data()
                 if self.test_suite.test_devices.DUTsprinkler.passEOL:
-                    self.text_console_logger("Saving unit information to the cloud...")
-                    cloudLogResult = CloudSaveUnitAttributes(name = "CloudSaveUnit", parent = self).run_step(peripherals_list = self.test_suite.test_devices)
-                    if cloudLogResult.is_passed is not True:
-                        self.text_console_logger(display_message = cloudLogResult.test_status)
                     self.text_console_logger("--------------------------  Device PASSED  -------------------------------")
                 else:
                     self.text_console_logger("--------------------------  Device FAILED  -------------------------------")
@@ -338,12 +334,12 @@ class MainWindow(tk.Tk):
 
         write_header: bool = True
         self.establish_file_write_location()
-        log_file_columns = ["Entry Time", "Device ID", "MAC Address", "Firmware", "BOM", "Batch", "Unit Name Time", "Battery", "Battery Time", "Ext Power I","Ext Power V", "Ext Power Time",
+        log_file_columns = ["Entry Time", "Device ID", "MAC Address", "Firmware", "BOM", "Batch", "Unit Name Time", "Battery", "Ext Power I", "Ext Power Time",
                             "Pump 1 Time", "Pump 1 Ave Current", "Pump 1 Current STD", "Pump 2 Time", "Pump 2 Ave Current", "Pump 2 Current STD", "Pump 3 Time", "Pump 3 Ave Current", "Pump 3 Current STD",
-                            "Nozzle Offset", "Nozzle Home Time","0 Pressure", "0 Pressure STD", "0 Pressure Time", "Valve Offset", "Valve Offset Time", "Valve Ave Current", "Valve Current STD",
+                            "Nozzle Offset", "0 Pressure", "0 Pressure STD", "0 Pressure Time", "Valve Offset", "Valve Offset Time", "Valve Ave Current", "Valve Current STD",
                             "Peak 1 Pressure", "Peak 1 Angle", "Peak 2 Pressure", "Peak 2 Angle", "Closed Pressure", "Closed Pressure STD", "Closed Pressure Time", "Fully Open Trials",
                             "Fully Open 1 Ave", "Fully Open 1 STD", "Fully Open 3 Ave", "Fully Open 3 STD", "Fully Open Time", "Nozzle Speed", "Nozzle Speed STD", "Nozzle Time", "Nozzle Ave Current",
-                            "Nozzle Current STD", "Vacuum Fail", "Vacuum Time", "Solar Voltage", "Solar Current", "Solar Time", "Cloud Save", "Cloud Time", "Printed", "Print Time", "Pass Time", "Passed"]
+                            "Nozzle Current STD", "Vacuum Fail", "Solar Current", "Solar Time", "Cloud Save", "Printed", "Print Time", "Pass Time", "Passed"]
 
         if pathlib.Path(self.csv_file_name).exists():
             write_header = False
@@ -362,9 +358,7 @@ class MainWindow(tk.Tk):
                             "Batch": self.test_suite.test_devices.DUTsprinkler.batchNumber,
                             "Unit Name Time": None,
                             "Battery": None,
-                            "Battery Time": None,
                             "Ext Power I": None,
-                            "Ext Power V": None,
                             "Ext Power Time": None,
                             "Pump 1 Time": None,
                             "Pump 1 Ave Current": None,
@@ -376,7 +370,6 @@ class MainWindow(tk.Tk):
                             "Pump 3 Ave Current": None,
                             "Pump 3 Current STD": None,
                             "Nozzle Offset": None,
-                            "Nozzle Home Time": None,
                             "0 Pressure": None,
                             "0 Pressure STD": None,
                             "0 Pressure Time": None,
@@ -403,12 +396,9 @@ class MainWindow(tk.Tk):
                             "Nozzle Ave Current": None,
                             "Nozzle Current STD": None,
                             "Vacuum Fail": None,
-                            "Vacuum Time": None,
-                            "Solar Voltage": None,
                             "Solar Current": None,
                             "Solar Time": None,
                             "Cloud Save": None,
-                            "Cloud Time": None,
                             "Printed": None,
                             "Print Time": None,
                             "Pass Time": self.test_suite.test_devices.DUTsprinkler.passTime,
@@ -420,13 +410,10 @@ class MainWindow(tk.Tk):
                 if entry.cycle_time > 0:
                     if isinstance(entry, UnitInformationResult):
                         default_row["Unit Name Time"] = entry.cycle_time
-                    elif isinstance(entry, TestBatteryResult):
-                        default_row["Battery Time"] = entry.cycle_time
                         default_row["Battery"] = self.test_suite.test_devices.DUTsprinkler.batteryVoltage
                     elif isinstance(entry, TestExternalPowerResult):
                         default_row["Ext Power Time"] = entry.cycle_time
                         default_row["Ext Power I"] = self.test_suite.test_devices.DUTsprinkler.extPowerCurrent
-                        default_row["Ext Power V"] = self.test_suite.test_devices.DUTsprinkler.extPowerVoltage
                     elif isinstance(entry, TestPumpResult):
                         if CurrentPump == 1:
                             default_row["Pump 1 Time"] = entry.cycle_time
@@ -444,7 +431,6 @@ class MainWindow(tk.Tk):
                             default_row["Pump 3 Current STD"] = self.test_suite.test_devices.DUTsprinkler.Pump3CurrentSTD
                             CurrentPump += 1
                     elif isinstance(entry, NozzleHomeResult):
-                        default_row["Nozzle Home Time"] = entry.cycle_time
                         default_row["Nozzle Offset"] = self.test_suite.test_devices.DUTsprinkler.nozzleOffset
                     elif isinstance(entry, PressureCheckResult):
                         default_row["0 Pressure Time"] = entry.cycle_time
@@ -480,15 +466,14 @@ class MainWindow(tk.Tk):
                             default_row["Nozzle Speed"] = self.test_suite.test_devices.DUTsprinkler.nozzleRotationAve
                             default_row["Nozzle Speed STD"] = self.test_suite.test_devices.DUTsprinkler.nozzleRotationSTD
                     elif isinstance(entry, CheckVacSwitchResult):
-                        default_row["Vacuum Time"] = entry.cycle_time
                         default_row["Vacuum Fail"] = self.test_suite.test_devices.DUTsprinkler.vacuumFail
                     elif isinstance(entry, TestSolarResult):
                         default_row["Solar Time"] = entry.cycle_time
-                        default_row["Solar Voltage"] = self.test_suite.test_devices.DUTsprinkler.solarVoltage
                         default_row["Solar Current"] = self.test_suite.test_devices.DUTsprinkler.solarCurrent                    
                     elif isinstance(entry, PrintBoxLabelResult):
                         default_row["Print Time"] = entry.cycle_time
                         default_row["Printed"] = self.test_suite.test_devices.DUTsprinkler.Printed
+                        default_row["CloudSave"] = self.test_suite.test_devices.DUTsprinkler.CloudSave
                     else:
                         print (type(entry))
                         raise TypeError(f'Program error, unknown test specified: {entry}')
