@@ -65,8 +65,8 @@ class MainWindow(tk.Tk):
                                 TestPump(name = "Pump 2", target_pump = 2, target_pump_duty = 100, parent = self),
                                 TestPump(name = "Pump 3", target_pump = 3, target_pump_duty = 100, parent = self),
                                 NozzleHome(name = "Nozzle Home", parent = self),
-                                PressureCheck(name = "Pressure Sensor", data_collection_time = 2.1, class_function= "EOL" , valve_target = None, parent = self),
                                 ValveCalibration(name = "Valve Calibration", parent = self, reset = True),
+                                PressureCheck(name = "Pressure Sensor", data_collection_time = 2.1, class_function= "EOL" , valve_target = None, parent = self),
                                 ClosedLeakCheck(name = "Closed Leak Check", parent = self),
                                 ConfirmValvePosition(name = "Confirm Valve Position", parent = self),
                                 NozzleRotation(name = "Nozzle Rotation", parent = self),
@@ -271,6 +271,9 @@ class MainWindow(tk.Tk):
                     self.status_labels[index].update()
                     if self.test_result_list[index].test_status != None:
                         self.text_console_logger(display_message = self.test_result_list[index].test_status[1:])
+                if index == 6:  # wait before zero pressure check
+                    self.text_console_logger(display_message = "Waiting 17 seconds...")
+                    time.sleep(17)                        
                 index += 1
 
             #Step 5: While Loop Complete or Escaped

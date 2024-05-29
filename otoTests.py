@@ -685,7 +685,7 @@ class NozzleRotation(TestStep):
                 NoCurrentAvailable = True
             if self.MINRotationSpeed <= measured_average_speed <= self.MAXRotationSpeed and nozzle_rotation_test_Max_STD_failure == False and nozzle_rotation_test_Min_STD_failure == False:
                 if MotorCurrentFail:
-                    FailMessage = f"±Nozzle Rotation Speed: {round(measured_average_speed/100, 2)}°/sec, σ {round(measured_STD/100, 2)}°/sec"
+                    FailMessage = f"Nozzle Rotation Speed: {round(measured_average_speed/100, 2)}°/sec, σ {round(measured_STD/100, 2)}°/sec"
                 elif NoCurrentAvailable:
                     return NozzleRotationResult(test_status = f"±Nozzle Rotation Speed: {round(measured_average_speed/100, 2)}°/sec, σ {round(measured_STD/100, 2)}°/sec",
                     step_start_time = startTime, Friction_Points = nozzle_rotation_test_failure_count, Nozzle_Rotation_Data = Nozzle_Rotation_Test_Data)
@@ -1305,7 +1305,7 @@ class TestExternalPower(TestStep):
         elif peripherals_list.DUTsprinkler.testFixtureName == "OTOLab1":
             CurrentFactor = 0.764
         elif peripherals_list.DUTsprinkler.testFixtureName == "LitensRefurb1":
-            CurrentFactor = 0.764
+            CurrentFactor = 0.859
         else:
             CurrentFactor = 1
             ErrorAfterMeasurement = True
