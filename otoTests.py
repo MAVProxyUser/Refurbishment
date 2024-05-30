@@ -1605,6 +1605,7 @@ class UnitInformation(TestStep):
                     self.parent.text_console_logger("Changing PyOtO to match new firmware...")
                     ChangePyOtO(peripherals_list = peripherals_list, version = 1)
                     try:
+                        peripherals_list.DUTMLB = pyoto.OtoInterface(pyoto.ConnectionType.UART, logger = None)
                         peripherals_list.DUTMLB.start_connection(port = globalvars.PortName, reset_on_connect = True)
                     except:
                         return UnitInformationResult(test_status = "Cannot reboot OtO after restoring settings", step_start_time = startTime)
@@ -2110,7 +2111,7 @@ class ValveCalibration(TestStep):
             return ValveCalibrationResult(test_status = str(e), step_start_time = start_time)
 
         calculated_offset = peripherals_list.DUTsprinkler.valveOffset
-        valve_offset = (saved_MLB + calculated_offset + 35800) % 36000 # this makes it absolute, adjust for lag by -2°
+        valve_offset = (saved_MLB + calculated_offset + 35600) % 36000 # this makes it absolute, adjust for lag by -2°
         absolute_fully_open = (int(valve_offset) + 9000) % 36000
         Peak1Angle = (int(main2peaks_position[0]) % 36000)/100
         Peak2Angle = (int(main2peaks_position[1]) % 36000)/100
@@ -2140,6 +2141,7 @@ def ADCtokPA(ADCValue):
     return round(((ADCValue - 1677721.6)/13421772.8)*globalvars.PressureSensor, 5)
 
 def ChangePyOtO(peripherals_list: TestPeripherals, version: int = 1):
+    global pyoto, otoMessageDefs
     if version == 1:
         # first remove PyOtO 2 from the module path sys.path, if it exists
         try:

@@ -585,111 +585,112 @@ class MainWindow(tk.Tk):
                         self.text_console_logger(display_message = "UNEXPECTED PROGRAM ERROR!")
                 self.status_labels[ButtonNumber].configure(bg = self.BAD_COLOUR, state = "normal")
                 self.one_button_to_rule_them_all.configure(state = "normal")
-                self.turn_valve_button.configure(state = "normal")               
-            if FunctionName in "Pump 1 Pump 2 Pump 3":
-                ResultList = self.test_suite.test_list[ButtonNumber].run_step(peripherals_list=self.test_suite.test_devices)
-                if not ResultList.is_passed:
-                    self.status_labels[ButtonNumber].configure(bg = self.BAD_COLOUR, state = "normal")
-                    self.status_labels[ButtonNumber].update()
-                    self.text_console.configure(bg = self.BAD_COLOUR)
-                    self.text_console_logger(display_message = ResultList.test_status)
-                    self.one_button_to_rule_them_all.configure(state = "normal")
-                    self.turn_valve_button.configure(state = "normal")
-                else:
-                    self.status_labels[ButtonNumber].configure(bg = self.GOOD_COLOUR, state = "normal")
-                    self.status_labels[ButtonNumber].update()
+                self.turn_valve_button.configure(state = "normal")
+            else:
+                if FunctionName in "Pump 1 Pump 2 Pump 3":
+                    ResultList = self.test_suite.test_list[ButtonNumber].run_step(peripherals_list=self.test_suite.test_devices)
+                    if not ResultList.is_passed:
+                        self.status_labels[ButtonNumber].configure(bg = self.BAD_COLOUR, state = "normal")
+                        self.status_labels[ButtonNumber].update()
+                        self.text_console.configure(bg = self.BAD_COLOUR)
+                        self.text_console_logger(display_message = ResultList.test_status)
+                        self.one_button_to_rule_them_all.configure(state = "normal")
+                        self.turn_valve_button.configure(state = "normal")
+                    else:
+                        self.status_labels[ButtonNumber].configure(bg = self.GOOD_COLOUR, state = "normal")
+                        self.status_labels[ButtonNumber].update()
+                        if ResultList.test_status != None:
+                            self.text_console_logger(display_message = ResultList.test_status[1:])
+                        self.one_button_to_rule_them_all.configure(state = "normal")
+                        self.turn_valve_button.configure(state = "normal")
+                elif FunctionName in "Information": 
+                    ResultList = self.test_suite.test_list[ButtonNumber].run_step(peripherals_list=self.test_suite.test_devices)
+                    if not ResultList.is_passed:
+                        self.status_labels[ButtonNumber].configure(bg = self.BAD_COLOUR, state = "normal")
+                        self.status_labels[ButtonNumber].update()
+                        self.text_console.configure(bg = self.BAD_COLOUR)
+                        self.text_console_logger(display_message = ResultList.test_status)
+                        self.one_button_to_rule_them_all.configure(state = "normal")
+                        self.turn_valve_button.configure(state = "normal")
+                    else:
+                        self.status_labels[ButtonNumber].configure(bg = self.GOOD_COLOUR, state = "normal")
+                        self.status_labels[ButtonNumber].update()
+                        if ResultList.test_status != None:
+                            self.text_console_logger(display_message = ResultList.test_status[1:])
+                        self.one_button_to_rule_them_all.configure(state = "normal")
+                        self.turn_valve_button.configure(state = "normal")  
+                elif FunctionName in "Charging":
+                    ResultList = self.test_suite.test_list[ButtonNumber].run_step(peripherals_list=self.test_suite.test_devices)  # OtO Charging
+                    if not ResultList.is_passed:
+                        self.status_labels[ButtonNumber].configure(bg = self.BAD_COLOUR, state = "normal")
+                        self.status_labels[ButtonNumber].update()
+                        self.text_console.configure(bg = self.BAD_COLOUR)
+                        self.text_console_logger(display_message = ResultList.test_status)
+                        self.one_button_to_rule_them_all.configure(state = "normal")
+                        self.turn_valve_button.configure(state = "normal")
+                    else:
+                        self.status_labels[ButtonNumber].configure(bg = self.GOOD_COLOUR, state = "normal")
+                        self.status_labels[ButtonNumber].update()
+                        if ResultList.test_status != None:
+                            self.text_console_logger(display_message = ResultList.test_status[1:])
+                        self.one_button_to_rule_them_all.configure(state = "normal")
+                        self.turn_valve_button.configure(state = "normal")                           
+                elif FunctionName in "Valve Calibration":
+                    ResultList = ValveCalibration(name = "Valve Calibration", parent = self, reset = False).run_step(peripherals_list = self.test_suite.test_devices)  # Run valve calibration
+                    if not ResultList.is_passed:
+                        self.status_labels[ButtonNumber].configure(bg = self.BAD_COLOUR, state = "normal")
+                        self.status_labels[ButtonNumber].update()
+                        self.text_console.configure(bg = self.BAD_COLOUR)
+                        self.text_console_logger(display_message = ResultList.test_status)
+                        self.one_button_to_rule_them_all.configure(state = "normal")
+                        self.turn_valve_button.configure(state = "normal")
+                    else:
+                        self.status_labels[ButtonNumber].configure(bg = self.GOOD_COLOUR, state = "normal")
+                        self.status_labels[ButtonNumber].update()
+                        if ResultList.test_status != None:
+                            self.text_console_logger(display_message = ResultList.test_status[1:])
+                        self.one_button_to_rule_them_all.configure(state = "normal")
+                        self.turn_valve_button.configure(state = "normal")                           
+                        if ResultList.test_status != None:
+                            self.text_console_logger(display_message = ResultList.test_status[1:])
+                elif FunctionName in "Solar Confirm Valve Position":
+                    ResultList = self.test_suite.test_list[ButtonNumber].run_step(peripherals_list=self.test_suite.test_devices)  # Run selected test
+                    if not ResultList.is_passed:
+                        self.status_labels[ButtonNumber].configure(bg = self.BAD_COLOUR, state = "normal")
+                        self.status_labels[ButtonNumber].update()
+                        self.text_console.configure(bg = self.BAD_COLOUR)
+                        self.text_console_logger(display_message = ResultList.test_status)
+                        self.one_button_to_rule_them_all.configure(state = "normal")
+                        self.turn_valve_button.configure(state = "normal")
+                    else:
+                        self.status_labels[ButtonNumber].configure(bg = self.GOOD_COLOUR, state = "normal")
+                        self.status_labels[ButtonNumber].update()
+                        if ResultList.test_status != None:
+                            self.text_console_logger(display_message = ResultList.test_status[1:])
+                        self.one_button_to_rule_them_all.configure(state = "normal")
+                        self.turn_valve_button.configure(state = "normal")
+                elif FunctionName in "Closed Leak Check":
+                    PauseTime = 17
+                    ResultList = PressureCheck(name = "Zero Pressure Check", data_collection_time = 2.1, class_function= "EOL" , valve_target = None, parent = self).run_step(peripherals_list = self.test_suite.test_devices)
                     if ResultList.test_status != None:
                         self.text_console_logger(display_message = ResultList.test_status[1:])
-                    self.one_button_to_rule_them_all.configure(state = "normal")
-                    self.turn_valve_button.configure(state = "normal")
-            elif FunctionName in "Information": 
-                ResultList = self.test_suite.test_list[ButtonNumber].run_step(peripherals_list=self.test_suite.test_devices)
-                if not ResultList.is_passed:
-                    self.status_labels[ButtonNumber].configure(bg = self.BAD_COLOUR, state = "normal")
-                    self.status_labels[ButtonNumber].update()
-                    self.text_console.configure(bg = self.BAD_COLOUR)
-                    self.text_console_logger(display_message = ResultList.test_status)
-                    self.one_button_to_rule_them_all.configure(state = "normal")
-                    self.turn_valve_button.configure(state = "normal")
-                else:
-                    self.status_labels[ButtonNumber].configure(bg = self.GOOD_COLOUR, state = "normal")
-                    self.status_labels[ButtonNumber].update()
-                    if ResultList.test_status != None:
-                        self.text_console_logger(display_message = ResultList.test_status[1:])
-                    self.one_button_to_rule_them_all.configure(state = "normal")
-                    self.turn_valve_button.configure(state = "normal")  
-            elif FunctionName in "Charging":
-                ResultList = self.test_suite.test_list[ButtonNumber].run_step(peripherals_list=self.test_suite.test_devices)  # OtO Charging
-                if not ResultList.is_passed:
-                    self.status_labels[ButtonNumber].configure(bg = self.BAD_COLOUR, state = "normal")
-                    self.status_labels[ButtonNumber].update()
-                    self.text_console.configure(bg = self.BAD_COLOUR)
-                    self.text_console_logger(display_message = ResultList.test_status)
-                    self.one_button_to_rule_them_all.configure(state = "normal")
-                    self.turn_valve_button.configure(state = "normal")
-                else:
-                    self.status_labels[ButtonNumber].configure(bg = self.GOOD_COLOUR, state = "normal")
-                    self.status_labels[ButtonNumber].update()
-                    if ResultList.test_status != None:
-                        self.text_console_logger(display_message = ResultList.test_status[1:])
-                    self.one_button_to_rule_them_all.configure(state = "normal")
-                    self.turn_valve_button.configure(state = "normal")                           
-            elif FunctionName in "Valve Calibration":
-                ResultList = ValveCalibration(name = "Valve Calibration", parent = self, reset = False).run_step(peripherals_list = self.test_suite.test_devices)  # Run valve calibration
-                if not ResultList.is_passed:
-                    self.status_labels[ButtonNumber].configure(bg = self.BAD_COLOUR, state = "normal")
-                    self.status_labels[ButtonNumber].update()
-                    self.text_console.configure(bg = self.BAD_COLOUR)
-                    self.text_console_logger(display_message = ResultList.test_status)
-                    self.one_button_to_rule_them_all.configure(state = "normal")
-                    self.turn_valve_button.configure(state = "normal")
-                else:
-                    self.status_labels[ButtonNumber].configure(bg = self.GOOD_COLOUR, state = "normal")
-                    self.status_labels[ButtonNumber].update()
-                    if ResultList.test_status != None:
-                        self.text_console_logger(display_message = ResultList.test_status[1:])
-                    self.one_button_to_rule_them_all.configure(state = "normal")
-                    self.turn_valve_button.configure(state = "normal")                           
-                    if ResultList.test_status != None:
-                        self.text_console_logger(display_message = ResultList.test_status[1:])
-            elif FunctionName in "Solar Confirm Valve Position":
-                ResultList = self.test_suite.test_list[ButtonNumber].run_step(peripherals_list=self.test_suite.test_devices)  # Run selected test
-                if not ResultList.is_passed:
-                    self.status_labels[ButtonNumber].configure(bg = self.BAD_COLOUR, state = "normal")
-                    self.status_labels[ButtonNumber].update()
-                    self.text_console.configure(bg = self.BAD_COLOUR)
-                    self.text_console_logger(display_message = ResultList.test_status)
-                    self.one_button_to_rule_them_all.configure(state = "normal")
-                    self.turn_valve_button.configure(state = "normal")
-                else:
-                    self.status_labels[ButtonNumber].configure(bg = self.GOOD_COLOUR, state = "normal")
-                    self.status_labels[ButtonNumber].update()
-                    if ResultList.test_status != None:
-                        self.text_console_logger(display_message = ResultList.test_status[1:])
-                    self.one_button_to_rule_them_all.configure(state = "normal")
-                    self.turn_valve_button.configure(state = "normal")
-            elif FunctionName in "Closed Leak Check":
-                PauseTime = 17
-                ResultList = PressureCheck(name = "Zero Pressure Check", data_collection_time = 2.1, class_function= "EOL" , valve_target = None, parent = self).run_step(peripherals_list = self.test_suite.test_devices)
-                if ResultList.test_status != None:
-                    self.text_console_logger(display_message = ResultList.test_status[1:])
-                self.text_console_logger(display_message = f"Waiting {PauseTime} seconds")
-                time.sleep(PauseTime)
-                ResultList = self.test_suite.test_list[ButtonNumber].run_step(peripherals_list=self.test_suite.test_devices)  # Verify Valve Closes
-                if not ResultList.is_passed:
-                    self.status_labels[ButtonNumber].configure(bg = self.BAD_COLOUR, state = "normal")
-                    self.status_labels[ButtonNumber].update()
-                    self.text_console.configure(bg = self.BAD_COLOUR)
-                    self.text_console_logger(display_message = ResultList.test_status)
-                    self.one_button_to_rule_them_all.configure(state = "normal")
-                    self.turn_valve_button.configure(state = "normal")
-                else:
-                    self.status_labels[ButtonNumber].configure(bg = self.GOOD_COLOUR, state = "normal")
-                    self.status_labels[ButtonNumber].update()
-                    if ResultList.test_status != None:
-                        self.text_console_logger(display_message = ResultList.test_status[1:])
-                    self.one_button_to_rule_them_all.configure(state = "normal")
-                    self.turn_valve_button.configure(state = "normal")                           
+                    self.text_console_logger(display_message = f"Waiting {PauseTime} seconds")
+                    time.sleep(PauseTime)
+                    ResultList = self.test_suite.test_list[ButtonNumber].run_step(peripherals_list=self.test_suite.test_devices)  # Verify Valve Closes
+                    if not ResultList.is_passed:
+                        self.status_labels[ButtonNumber].configure(bg = self.BAD_COLOUR, state = "normal")
+                        self.status_labels[ButtonNumber].update()
+                        self.text_console.configure(bg = self.BAD_COLOUR)
+                        self.text_console_logger(display_message = ResultList.test_status)
+                        self.one_button_to_rule_them_all.configure(state = "normal")
+                        self.turn_valve_button.configure(state = "normal")
+                    else:
+                        self.status_labels[ButtonNumber].configure(bg = self.GOOD_COLOUR, state = "normal")
+                        self.status_labels[ButtonNumber].update()
+                        if ResultList.test_status != None:
+                            self.text_console_logger(display_message = ResultList.test_status[1:])
+                        self.one_button_to_rule_them_all.configure(state = "normal")
+                        self.turn_valve_button.configure(state = "normal")                           
 
         # reset check boxes to ensure each unit isn't automatically set to Final Check
         self.FinalCheck.set(0)   
