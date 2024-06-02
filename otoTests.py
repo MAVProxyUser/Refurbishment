@@ -2237,6 +2237,7 @@ def CheckReturnHistory(peripherals_list: TestPeripherals, database:firestore_v1.
             else:
                 ReturnString = f"This unit has been returned more than {MAXRETURNS} times, DON'T REFURBISH"
             return ReturnString
+        return None
     elif ReturnCount > MAXRETURNS:
         if MAXRETURNS == 1:
             ReturnString = f"This unit has been returned more than {MAXRETURNS} time, DON'T REFURBISH"
@@ -2318,7 +2319,7 @@ def retrieveFirestore() -> firestore_v1.Client:
     # print("Firestore Login Success")
     return database
 
-def SetRefurbishedTrue(database: firestore_v1.client, ReturnHistoryID: str):
+def SetRefurbishedTrue(database: firestore_v1.Client, ReturnHistoryID: str):
     "sets Refurbished = True in the returnHistory collection"
     try:
         batchJob = database.batch()
@@ -2338,6 +2339,7 @@ def SetRefurbishedTrue(database: firestore_v1.client, ReturnHistoryID: str):
             return f"Error updating returned unit cloud information: {str(e)}"
 
 def WriteReturnHistory(peripherals_list: TestPeripherals, targetDeviceID: str, database: firestore_v1.Client):
+    "writes return history updates"
     try:
         batchJob = database.batch()
 
