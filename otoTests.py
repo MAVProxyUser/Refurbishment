@@ -632,11 +632,11 @@ class NozzleRotation(TestStep):
     TIMEOUT = 25 # in sec
     Nozzle_Duty_Cycle = 30  # % of full
     MAXRotationSpeed: int = 3943  # Mar 2411 data 3943
-    MINRotationSpeed: int = 2900  # Mar 2411 data 2900
+    MINRotationSpeed: int = 2750  # 2508 til March change to 2750 then also in March to 2900
     Nozzle_Speed = (MAXRotationSpeed + MINRotationSpeed) * 0.5  # centidegrees / sec
     Max_STD = 383  # 2411 data 383
     Min_STD = 56  # 2411 data 56
-    MAXNMotorCurrent = 76  # Dec 2023 data at Meco, first 141 units, confirmed with 2k units Jan 2024
+    MAXNMotorCurrent = 90  # History 95 till March, then 76
     MINNMotorCurrent = 31  # 2410 data
     MAXNMotorCurrentSTD = 12.5  # 2411 data 12.5
     MINNMotorCurrentSTD = 0.8  # 2411 data 0.8
