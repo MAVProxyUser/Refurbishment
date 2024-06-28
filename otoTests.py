@@ -2197,7 +2197,7 @@ def CheckReturnHistory(peripherals_list: TestPeripherals, database:firestore_v1.
             FITNumber = value.get("FIT")
         except:
             FITNumber = None
-        if FITNumber != "FIT-305":
+        if FITNumber not in "FIT-305 FIT-393":
             return "This unit cannot be refurbished, it has been returned under the FIT system"
 
     ReturnQuery = database.collection("returnHistory").where(filter=firestore_v1.FieldFilter(field_path = "associatedDevice", op_string = "==", value = targetDeviceID))
